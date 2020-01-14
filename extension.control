@@ -1,0 +1,4 @@
+# extension name
+comment = 'Operations for spatio-temporal pattern queries for 1NF data'
+default_version = '1.0'
+relocatable = false
