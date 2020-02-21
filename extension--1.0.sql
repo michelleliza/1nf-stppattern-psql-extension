@@ -90,3 +90,312 @@ BEGIN
 	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION atinstant (
+	in_obj integer[],
+	obj_periods tsrange[],
+	inst timestamp without time zone
+) RETURNS TABLE (
+	out_i integer,
+	ts timestamp without time zone
+) AS $$
+DECLARE
+	i integer := 1;
+BEGIN
+	ts := inst;
+	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+			out_i := in_obj[i];
+		END IF;
+		i := i + 1;
+	END LOOP;
+	END IF;
+	RETURN NEXT;
+END;
+$$ LANGUAGE 'plpgsql' STRICT;
+
+CREATE OR REPLACE FUNCTION atinstant (
+	in_obj text[],
+	obj_periods tsrange[],
+	inst timestamp without time zone
+) RETURNS TABLE (
+	out_t text,
+	ts timestamp without time zone
+) AS $$
+DECLARE
+	i integer := 1;
+BEGIN
+	ts := inst;
+	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+			out_t := in_obj[i];
+		END IF;
+		i := i + 1;
+	END LOOP;
+	END IF;
+	RETURN NEXT;
+END;
+$$ LANGUAGE 'plpgsql' STRICT;
+
+CREATE OR REPLACE FUNCTION atinstant (
+	in_obj boolean[],
+	obj_periods tsrange[],
+	inst timestamp without time zone
+) RETURNS TABLE (
+	out_b boolean,
+	ts timestamp without time zone
+) AS $$
+DECLARE
+	i integer := 1;
+BEGIN
+	ts := inst;
+	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+			out_b := in_obj[i];
+		END IF;
+		i := i + 1;
+	END LOOP;
+	END IF;
+	RETURN NEXT;
+END;
+$$ LANGUAGE 'plpgsql' STRICT;
+
+CREATE OR REPLACE FUNCTION atinstant (
+	in_obj_start real[],
+	in_obj_end real[],
+	obj_periods tsrange[],
+	inst timestamp without time zone
+) RETURNS TABLE (
+	out_r real,
+	ts timestamp without time zone
+) AS $$
+DECLARE
+	i integer := 1;
+	k real;
+BEGIN
+	ts := inst;
+	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+		IF (inst = lower(obj_periods[i])) THEN
+			out_i := in_obj_start[i];				 
+		ELSE
+			IF (inst = upper(obj_periods[i])) THEN
+				out_i := in_obj_end[i];
+			ELSE
+				IF (inst > lower(obj_periods[i]) AND inst < upper(obj_periods[i])) THEN
+					k := EXTRACT(EPOCH FROM (inst - lower(obj_periods[i]))) / EXTRACT(EPOCH FROM (upper(obj_periods[i]) - lower(obj_periods[i])));
+					out_i := in_obj_start[i] + k * (in_obj_end[i] - in_obj_start[i]);																														
+				END IF;
+			END IF;
+		END IF;
+		i := i + 1;
+	END LOOP;
+	RETURN NEXT;
+END;
+$$ LANGUAGE 'plpgsql' STRICT;
+
+CREATE OR REPLACE FUNCTION atinstant (
+	in_obj_start geometry(POINT)[],
+	in_obj_end geometry(POINT)[],
+	obj_periods tsrange[],
+	inst timestamp without time zone
+) RETURNS TABLE (
+	out_p geometry(POINT),
+	ts timestamp without time zone
+) AS $$
+DECLARE
+	i integer := 1;
+	j real;
+	x real;
+	y real;
+BEGIN
+	ts := inst;
+	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+		IF (inst = lower(obj_periods[i])) THEN
+			out_p := in_obj_start[i];				 
+		ELSE
+			IF (inst = upper(obj_periods[i])) THEN
+				out_p := in_obj_end[i];
+			ELSE
+				IF (inst > lower(obj_periods[i]) AND inst < upper(obj_periods[i])) THEN
+					j := EXTRACT(EPOCH FROM (inst - lower(obj_periods[i]))) / EXTRACT(EPOCH FROM (upper(obj_periods[i]) - lower(obj_periods[i])));
+					x := ST_X(in_obj_start[i]) + j * (ST_X(in_obj_end[i]) - ST_X(in_obj_start[i]));
+					y := ST_Y(in_obj_start[i]) + j * (ST_Y(in_obj_end[i]) - ST_Y(in_obj_start[i]));
+					out_p := ST_Point(x, y);
+				END IF;
+			END IF;
+		END IF;
+		i := i + 1;
+	END LOOP;
+	IF out_p IS NULL THEN
+		out_p := 'POINT EMPTY';
+	END IF;
+	RETURN NEXT;
+END;
+$$ LANGUAGE 'plpgsql' STRICT;
+
+CREATE OR REPLACE FUNCTION atinstant (
+	in_obj geometry(POLYGON)[],
+	obj_periods tsrange[],
+	inst timestamp without time zone
+) RETURNS TABLE (
+	out_r geometry(POLYGON),
+	ts timestamp without time zone
+) AS $$
+DECLARE
+	i integer := 1;
+BEGIN
+	ts := inst;
+	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+			out_r := in_obj[i];
+		END IF;
+		i := i + 1;
+	END LOOP;
+	IF out_r IS NULL THEN
+		out_r := 'POLYGON EMPTY';
+	END IF;
+	RETURN NEXT;
+END;
+$$ LANGUAGE 'plpgsql' STRICT;
+
+CREATE OR REPLACE FUNCTION atperiods (
+	in_obj integer[],
+	in_obj_periods tsrange[],
+	periods tsrange[]
+) RETURNS TABLE (
+	out_obj integer[],
+	out_obj_periods tsrange[]
+)
+AS $$
+DECLARE
+	instant record;
+	ts tsrange;
+BEGIN
+  FOREACH ts IN ARRAY periods LOOP
+  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+	out_obj := array_append(out_obj_start, instant.out_i);
+	out_obj_periods := array_append(out_obj_periods, ts);
+	RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION atperiods (
+	in_obj text[],
+	in_obj_periods tsrange[],
+	periods tsrange[]
+) RETURNS TABLE (
+	out_obj text[],
+	out_obj_periods tsrange[]
+)
+AS $$
+DECLARE
+	instant record;
+	ts tsrange;
+BEGIN
+  FOREACH ts IN ARRAY periods LOOP
+  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+	out_obj := array_append(out_obj_start, instant.out_t);
+	out_obj_periods := array_append(out_obj_periods, ts);
+	RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION atperiods (
+	in_obj boolean[],
+	in_obj_periods tsrange[],
+	periods tsrange[]
+) RETURNS TABLE (
+	out_obj boolean[],
+	out_obj_periods tsrange[]
+)
+AS $$
+DECLARE
+	instant record;
+	ts tsrange;
+BEGIN
+  FOREACH ts IN ARRAY periods LOOP
+  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+	out_obj := array_append(out_obj_start, instant.out_b);
+	out_obj_periods := array_append(out_obj_periods, ts);
+	RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION atperiods (
+	in_obj_start real[],
+	in_obj_end real[],
+	in_obj_periods tsrange[],
+	periods tsrange[]
+) RETURNS TABLE (
+	out_obj_start real[],
+	out_obj_end real[],
+	out_obj_periods tsrange[]
+)
+AS $$
+DECLARE
+	instant_lower record;
+	instant_upper record;
+	ts tsrange;
+BEGIN
+  FOREACH ts IN ARRAY periods LOOP
+  	instant_lower := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+	instant_upper := atinstant(in_obj_start, in_obj_start, in_obj_periods, upper(ts));
+	out_obj_start := array_append(out_obj_start, instant_lower.out_r);
+	out_obj_end := array_append(out_obj_end, instant_upper.out_r);
+	out_obj_periods := array_append(out_obj_periods, ts);
+	RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION atperiods (
+	in_obj_start geometry(POINT)[],
+	in_obj_end geometry(POINT)[],
+	in_obj_periods tsrange[],
+	periods tsrange[]
+) RETURNS TABLE (
+	out_obj_start geometry(POINT)[],
+	out_obj_end geometry(POINT)[],
+	out_obj_periods tsrange[]
+)
+AS $$
+DECLARE
+	instant_lower record;
+	instant_upper record;
+	ts tsrange;
+BEGIN
+  FOREACH ts IN ARRAY periods LOOP
+  	instant_lower := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+	instant_upper := atinstant(in_obj_start, in_obj_start, in_obj_periods, upper(ts));
+	out_obj_start := array_append(out_obj_start, instant_lower.out_p);
+	out_obj_end := array_append(out_obj_end, instant_upper.out_p);
+	out_obj_periods := array_append(out_obj_periods, ts);
+	RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION atperiods (
+	in_obj geometry(POLYGON)[],
+	in_obj_periods tsrange[],
+	periods tsrange[]
+) RETURNS TABLE (
+	out_obj geometry(POLYGON)[],
+	out_obj_periods tsrange[]
+)
+AS $$
+DECLARE
+	instant record;
+	ts tsrange;
+BEGIN
+  FOREACH ts IN ARRAY periods LOOP
+  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+	out_obj := array_append(out_obj_start, instant.out_r);
+	out_obj_periods := array_append(out_obj_periods, ts);
+	RETURN NEXT;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
