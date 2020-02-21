@@ -399,3 +399,37 @@ BEGIN
   END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION merging (
+	in_obj boolean[],
+  	in_periods tsrange[]
+) RETURNS TABLE (
+	out_obj boolean,
+	out_period tsrange
+) AS $$
+DECLARE
+	i integer := 1;
+	current_val boolean;
+	current_start timestamp;
+	current_end timestamp;
+	val boolean;
+BEGIN
+	current_val := in_obj[i];
+	current_start := lower(in_periods[i]);
+	FOREACH val IN ARRAY in_obj LOOP
+		IF (in_obj[i] != current_val) THEN
+			current_end := upper(in_periods[i-1]);
+			out_obj := current_val;
+			out_period := tsrange(current_start, current_end, '[)');
+			RETURN NEXT;
+			current_val := in_obj[i];
+			current_start := lower(in_periods[i]);
+		END IF;
+	i := i + 1;
+	END LOOP;
+	current_end := upper(in_periods[i-1]);
+	out_obj := current_val;
+	out_period := tsrange(current_start, current_end, '[)');
+	RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql STRICT;
