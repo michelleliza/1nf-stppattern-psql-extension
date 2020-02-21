@@ -263,8 +263,8 @@ CREATE OR REPLACE FUNCTION atperiods (
 	in_obj_periods tsrange[],
 	periods tsrange[]
 ) RETURNS TABLE (
-	out_obj integer[],
-	out_obj_periods tsrange[]
+	out_obj integer,
+	out_obj_periods tsrange
 )
 AS $$
 DECLARE
@@ -273,8 +273,8 @@ DECLARE
 BEGIN
   FOREACH ts IN ARRAY periods LOOP
   	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj_start, instant.out_i);
-	out_obj_periods := array_append(out_obj_periods, ts);
+	out_obj := instant.out_i;
+	out_obj_periods := ts;
 	RETURN NEXT;
   END LOOP;
 END;
@@ -285,8 +285,8 @@ CREATE OR REPLACE FUNCTION atperiods (
 	in_obj_periods tsrange[],
 	periods tsrange[]
 ) RETURNS TABLE (
-	out_obj text[],
-	out_obj_periods tsrange[]
+	out_obj text,
+	out_obj_periods tsrange
 )
 AS $$
 DECLARE
@@ -295,8 +295,8 @@ DECLARE
 BEGIN
   FOREACH ts IN ARRAY periods LOOP
   	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj_start, instant.out_t);
-	out_obj_periods := array_append(out_obj_periods, ts);
+	out_obj := instant.out_t;
+	out_obj_periods := ts;
 	RETURN NEXT;
   END LOOP;
 END;
@@ -307,8 +307,8 @@ CREATE OR REPLACE FUNCTION atperiods (
 	in_obj_periods tsrange[],
 	periods tsrange[]
 ) RETURNS TABLE (
-	out_obj boolean[],
-	out_obj_periods tsrange[]
+	out_obj boolean,
+	out_obj_periods tsrange
 )
 AS $$
 DECLARE
@@ -317,8 +317,8 @@ DECLARE
 BEGIN
   FOREACH ts IN ARRAY periods LOOP
   	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj_start, instant.out_b);
-	out_obj_periods := array_append(out_obj_periods, ts);
+	out_obj := instant.out_b;
+	out_obj_periods := ts;
 	RETURN NEXT;
   END LOOP;
 END;
@@ -330,9 +330,9 @@ CREATE OR REPLACE FUNCTION atperiods (
 	in_obj_periods tsrange[],
 	periods tsrange[]
 ) RETURNS TABLE (
-	out_obj_start real[],
-	out_obj_end real[],
-	out_obj_periods tsrange[]
+	out_obj_start real,
+	out_obj_end real,
+	out_obj_periods tsrange
 )
 AS $$
 DECLARE
@@ -341,11 +341,11 @@ DECLARE
 	ts tsrange;
 BEGIN
   FOREACH ts IN ARRAY periods LOOP
-  	instant_lower := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	instant_upper := atinstant(in_obj_start, in_obj_start, in_obj_periods, upper(ts));
-	out_obj_start := array_append(out_obj_start, instant_lower.out_r);
-	out_obj_end := array_append(out_obj_end, instant_upper.out_r);
-	out_obj_periods := array_append(out_obj_periods, ts);
+  	instant_lower := atinstant(in_obj_start, in_obj_end, in_obj_periods, lower(ts));
+	instant_upper := atinstant(in_obj_start, in_obj_end, in_obj_periods, upper(ts));
+	out_obj_start := instant_lower.out_r;
+	out_obj_end := instant_upper.out_r;
+	out_obj_periods := ts;
 	RETURN NEXT;
   END LOOP;
 END;
@@ -357,9 +357,9 @@ CREATE OR REPLACE FUNCTION atperiods (
 	in_obj_periods tsrange[],
 	periods tsrange[]
 ) RETURNS TABLE (
-	out_obj_start geometry(POINT)[],
-	out_obj_end geometry(POINT)[],
-	out_obj_periods tsrange[]
+	out_obj_start geometry(POINT),
+	out_obj_end geometry(POINT),
+	out_obj_periods tsrange
 )
 AS $$
 DECLARE
@@ -368,11 +368,11 @@ DECLARE
 	ts tsrange;
 BEGIN
   FOREACH ts IN ARRAY periods LOOP
-  	instant_lower := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	instant_upper := atinstant(in_obj_start, in_obj_start, in_obj_periods, upper(ts));
-	out_obj_start := array_append(out_obj_start, instant_lower.out_p);
-	out_obj_end := array_append(out_obj_end, instant_upper.out_p);
-	out_obj_periods := array_append(out_obj_periods, ts);
+  	instant_lower := atinstant(in_obj_start, in_obj_end, in_obj_periods, lower(ts));
+	instant_upper := atinstant(in_obj_start, in_obj_end, in_obj_periods, upper(ts));
+	out_obj_start := instant_lower.out_p;
+	out_obj_end := instant_upper.out_p;
+	out_obj_periods := ts;
 	RETURN NEXT;
   END LOOP;
 END;
@@ -383,8 +383,8 @@ CREATE OR REPLACE FUNCTION atperiods (
 	in_obj_periods tsrange[],
 	periods tsrange[]
 ) RETURNS TABLE (
-	out_obj geometry(POLYGON)[],
-	out_obj_periods tsrange[]
+	out_obj geometry(POLYGON),
+	out_obj_periods tsrange
 )
 AS $$
 DECLARE
@@ -393,8 +393,8 @@ DECLARE
 BEGIN
   FOREACH ts IN ARRAY periods LOOP
   	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj_start, instant.out_r);
-	out_obj_periods := array_append(out_obj_periods, ts);
+	out_obj := instant.out_r;
+	out_obj_periods := ts;
 	RETURN NEXT;
   END LOOP;
 END;
