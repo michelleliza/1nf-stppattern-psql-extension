@@ -408,15 +408,14 @@ CREATE OR REPLACE FUNCTION merging (
 	out_period tsrange
 ) AS $$
 DECLARE
-	i integer := 1;
+	i integer;
 	current_val boolean;
 	current_start timestamp;
 	current_end timestamp;
-	val boolean;
 BEGIN
 	current_val := in_obj[i];
 	current_start := lower(in_periods[i]);
-	FOREACH val IN ARRAY in_obj LOOP
+	FOR i IN 1..array_length(in_obj, 1) LOOP
 		IF (in_obj[i] != current_val) THEN
 			current_end := upper(in_periods[i-1]);
 			out_obj := current_val;
@@ -425,7 +424,6 @@ BEGIN
 			current_val := in_obj[i];
 			current_start := lower(in_periods[i]);
 		END IF;
-	i := i + 1;
 	END LOOP;
 	current_end := upper(in_periods[i-1]);
 	out_obj := current_val;
