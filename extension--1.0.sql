@@ -431,3 +431,113 @@ BEGIN
 	RETURN NEXT;
 END;
 $$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION parse (
+	const varchar[],
+	OUT o boolean
+) AS $$
+DECLARE
+	i integer := 1;
+	quan integer;
+	quan_length varchar[];
+	temp_quan varchar[];
+	is_quan boolean := FALSE;
+	op varchar;
+BEGIN
+	WHILE i <= array_length(const, 1) LOOP
+		IF const[i] = 'a' OR const[i] = 'b' OR const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
+			RAISE NOTICE '%', const[i];
+			i := i + 1;
+		ELSE
+			quan_length = '{}';
+			temp_quan = '{}';
+			is_quan := TRUE;
+			WHILE is_quan LOOP
+				quan_length := array_append(quan_length, '9');
+				temp_quan := array_append(temp_quan, const[i]);
+				i := i + 1;
+				IF const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
+					is_quan := FALSE;
+					op := const[i];
+				END IF;
+			END LOOP;
+			quan = to_number(text(temp_quan), text(quan_length));
+			RAISE NOTICE '%', quan;
+			RAISE NOTICE '%', op;
+			i := i + 1;
+		END IF;	
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION vec (
+	VARIADIC elmts varchar[],
+	OUT vector varchar[]
+) AS $$
+BEGIN
+	FOR i IN 1..array_length(elmts, 1) LOOP
+		vector[i] := elmts[i];
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION form_constraint (
+  idx_1 integer,
+  idx_2 integer,
+  ir varchar[],
+  OUT o varchar[]
+) AS $$
+BEGIN
+  o[1] := idx_1::varchar;
+  o[2] := idx_2::varchar;
+  o[3] := ir::varchar;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION stconstraint (
+	pred_1_vals boolean[],
+	pred_1_intervals tsrange[],
+	pred_2_vals boolean[],
+	pred_2_intervals tsrange[],
+	ir varchar[]
+	OUT o boolean
+) AS $$
+BEGIN
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION pattern (
+	lifted_commands varchar[],
+	constraints varchar[],
+	OUT o boolean
+) AS $$
+DECLARE
+	command varchar[];
+	temp_objects boolean[];
+	temp_intervals tsrange[];
+	obj_indices integer[];
+	inst record;
+	i integer := 1;
+BEGIN
+	FOREACH command IN ARRAY lifted_commands LOOP
+		obj_indices := array_append(obj_indices, i);
+		FOR inst IN EXECUTE command LOOP
+			temp_objects := array_append(temp_objects, inst.out_b);
+			temp_intervals := array_append(temp_intervals, inst.out_i);
+			i := i + 1;
+		END LOOP;
+		obj_indices := array_append(obj_indices, i);
+		i := i + 1;
+	END LOOP;
+	o := TRUE;
+	FOR j IN RANGE 1..array_length(constraints, 1) LOOP
+		o := o AND stconstraint(
+				temp_objects[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
+				temp_intervals[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
+				temp_objects[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
+				temp_intervals[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
+				constraints[j][3]
+			);
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
