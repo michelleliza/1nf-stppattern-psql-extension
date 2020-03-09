@@ -479,6 +479,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
+CREATE OR REPLACE FUNCTION filtering (
+	lifted_pred mbool,
+	OUT o tsrange[]
+) AS $$
+DECLARE
+	i_out integer := 1;
+BEGIN
+	FOR i_in IN 1..array_length(lifted_pred, 1) LOOP
+		IF lifted_pred.units[i_in].val THEN
+			o[i_out] := lifted_pred.units[i_in].i;
+			i_out := i_out + 1;
+		END IF;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
 CREATE OR REPLACE FUNCTION stconstraint (
 	pred_1_vals boolean[],
 	pred_1_intervals tsrange[],
