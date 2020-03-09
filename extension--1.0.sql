@@ -1,6 +1,15 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION stpqueries" to load this file. \quit
 
+CREATE TYPE ubool AS (
+	i tsrange,
+	val boolean
+);
+
+CREATE TYPE mbool AS (
+	units ubool[]
+);
+
 CREATE OR REPLACE FUNCTION partitioning (
 	interval_1 tsrange[],
 	interval_2 tsrange[],
