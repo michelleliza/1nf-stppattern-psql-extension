@@ -417,6 +417,42 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
+CREATE OR REPLACE lifted_values (
+	r record,
+	OUT val anyarray
+) AS $$
+BEGIN
+	val := r.values;
+END;
+$$ LANGUAGE plpgsql STRICT
+
+CREATE OR REPLACE lifted_value_start (
+	r record,
+	OUT val anyarray
+) AS $$
+BEGIN
+	val := r.value_start;
+END;
+$$ LANGUAGE plpgsql STRICT
+
+CREATE OR REPLACE lifted_value_end (
+	r record,
+	OUT val anyarray
+) AS $$
+BEGIN
+	val := r.value_end;
+END;
+$$ LANGUAGE plpgsql STRICT
+
+CREATE OR REPLACE lifted_periods (
+	r record,
+	OUT val tsrange[]
+) AS $$
+BEGIN
+	val := r.periods;
+END;
+$$ LANGUAGE plpgsql STRICT
+
 CREATE OR REPLACE FUNCTION parse (
 	const varchar[],
 	OUT o boolean
@@ -489,6 +525,23 @@ BEGIN
 	FOR i_in IN 1..array_length(lifted_pred, 1) LOOP
 		IF lifted_pred.units[i_in].val THEN
 			o[i_out] := lifted_pred.units[i_in].i;
+			i_out := i_out + 1;
+		END IF;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION filtering (
+	pred_values boolean[],
+	pred_periods tsrange[],
+	OUT o tsrange[]
+) AS $$
+DECLARE
+	i_out integer := 1;
+BEGIN
+	FOR i_in IN 1..array_length(pred_values, 1) LOOP
+		IF pred_values[i_in] THEN
+			o[i_out] := pred_periods[i_in];
 			i_out := i_out + 1;
 		END IF;
 	END LOOP;
