@@ -548,12 +548,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
+CREATE OR REPLACE FUNCTION checkcontstraint (
+	interval_1 tsrange,
+	interval_2 tsrange,
+	ir varchar,
+	OUT o boolean
+) AS $$
+BEGIN
+END;
+$$ LANGUAGE plpgsql STRICT;
+
 CREATE OR REPLACE FUNCTION stconstraint (
 	pred_1_vals boolean[],
 	pred_1_intervals tsrange[],
 	pred_2_vals boolean[],
 	pred_2_intervals tsrange[],
-	ir varchar[]
+	ir varchar[],
 	OUT o boolean
 ) AS $$
 BEGIN
@@ -561,37 +571,73 @@ END;
 $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION pattern (
-	lifted_commands varchar[],
-	constraints varchar[],
+	pred_1_vals boolean[],
+	pred_1_intervals tsrange[],
+	pred_2_vals boolean[],
+	pred_2_intervals tsrange[],
+	ir varchar[],
 	OUT o boolean
 ) AS $$
 DECLARE
-	command varchar[];
-	temp_objects boolean[];
-	temp_intervals tsrange[];
-	obj_indices integer[];
-	inst record;
-	i integer := 1;
+	true_intervals_1 tsrange[];
+	true_intervals_2 tsrange[];
+	ir_i integer := 1;
+	i_1 integer;
+	i_2 integer;
 BEGIN
-	FOREACH command IN ARRAY lifted_commands LOOP
-		obj_indices := array_append(obj_indices, i);
-		FOR inst IN EXECUTE command LOOP
-			temp_objects := array_append(temp_objects, inst.out_b);
-			temp_intervals := array_append(temp_intervals, inst.out_i);
-			i := i + 1;
+	--Preprocessing
+	true_intervals_1 := filtering(pred_1_vals, pred_1_intervals);
+  	true_intervals_2 := filtering(pred_2_vals, pred_2_intervals);
+
+	--Main
+	o := FALSE;
+	WHILE NOT o AND ir_i <= array_length(ir, 1) LOOP
+		i_1 := 1;
+		WHILE NOT o AND i_1 <= array_length(true_intervals_1, 1) LOOP
+			i_2 := 1;
+			WHILE NOT o AND i_2 <= array_length(true_intervals_2, 1) LOOP
+				i_2 := i_2 + 1;
+				o := checkcontstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
+			END LOOP;
+			i_1 := i_1 + 1;
 		END LOOP;
-		obj_indices := array_append(obj_indices, i);
-		i := i + 1;
-	END LOOP;
-	o := TRUE;
-	FOR j IN RANGE 1..array_length(constraints, 1) LOOP
-		o := o AND stconstraint(
-				temp_objects[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
-				temp_intervals[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
-				temp_objects[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
-				temp_intervals[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
-				constraints[j][3]
-			);
+		ir_i := ir_i + 1;
 	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
+
+-- CREATE OR REPLACE FUNCTION pattern (
+-- 	lifted_commands varchar[],
+-- 	constraints varchar[],
+-- 	OUT o boolean
+-- ) AS $$
+-- DECLARE
+-- 	command varchar[];
+-- 	temp_objects boolean[];
+-- 	temp_intervals tsrange[];
+-- 	obj_indices integer[];
+-- 	inst record;
+-- 	i integer := 1;
+-- BEGIN
+-- 	FOREACH command IN ARRAY lifted_commands LOOP
+-- 		obj_indices := array_append(obj_indices, i);
+-- 		FOR inst IN EXECUTE command LOOP
+-- 			temp_objects := array_append(temp_objects, inst.out_b);
+-- 			temp_intervals := array_append(temp_intervals, inst.out_i);
+-- 			i := i + 1;
+-- 		END LOOP;
+-- 		obj_indices := array_append(obj_indices, i);
+-- 		i := i + 1;
+-- 	END LOOP;
+-- 	o := TRUE;
+-- 	FOR j IN RANGE 1..array_length(constraints, 1) LOOP
+-- 		o := o AND stconstraint(
+-- 				temp_objects[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
+-- 				temp_intervals[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
+-- 				temp_objects[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
+-- 				temp_intervals[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
+-- 				constraints[j][3]
+-- 			);
+-- 	END LOOP;
+-- END;
+-- $$ LANGUAGE plpgsql STRICT;
