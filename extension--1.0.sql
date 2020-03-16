@@ -387,10 +387,9 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION merging (
 	in_obj boolean[],
-  	in_periods tsrange[]
-) RETURNS TABLE (
-	out_obj boolean,
-	out_period tsrange
+  	in_periods tsrange[],
+	OUT out_obj boolean[],
+	OUT out_periods tsrange[]
 ) AS $$
 DECLARE
 	i integer;
@@ -403,30 +402,172 @@ BEGIN
 	FOR i IN 1..array_length(in_obj, 1) LOOP
 		IF (in_obj[i] != current_val) THEN
 			current_end := upper(in_periods[i-1]);
-			out_obj := current_val;
-			out_period := tsrange(current_start, current_end, '[)');
-			RETURN NEXT;
+			out_obj := array_append(out_obj, current_val);
+			out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 			current_val := in_obj[i];
 			current_start := lower(in_periods[i]);
 		END IF;
 	END LOOP;
 	current_end := upper(in_periods[i-1]);
-	out_obj := current_val;
-	out_period := tsrange(current_start, current_end, '[)');
-	RETURN NEXT;
+	out_obj := array_append(out_obj, current_val);
+	out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE lifted_values (
+CREATE OR REPLACE FUNCTION merging (
+	in_obj_start real[],
+	in_obj_end real[],
+  	in_periods tsrange[],
+	OUT out_obj_start real[],
+	OUT out_obj_end real[],
+	OUT out_periods tsrange[]
+) AS $$
+DECLARE
+	i integer;
+	current_val_start real;
+	current_val_end real;
+	current_start timestamp;
+	current_end timestamp;
+BEGIN
+	current_val_start := in_obj_start[i];
+	current_val_end := in_obj_end[i];
+	current_start := lower(in_periods[i]);
+	FOR i IN 1..array_length(in_obj, 1) LOOP
+		IF (in_obj_start[i] != current_val_start OR in_obj_end != current_val_end) THEN
+			current_end := upper(in_periods[i-1]);
+			out_obj_start := array_append(out_obj_start, current_val_start);
+			out_obj_end := array_append(out_obj_end, current_val_end);
+			out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
+			current_val_start := in_obj_start[i];
+			current_val_end := in_obj_end[i];
+			current_start := lower(in_periods[i]);
+		END IF;
+	END LOOP;
+	current_end := upper(in_periods[i-1]);
+	out_obj_start := array_append(out_obj_start, current_val_start);
+	out_obj_end := array_append(out_obj_end, current_val_end);
+	out_periods := out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE lifted_pred (
+	command text,
+	ARGS
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(periods1, periods2);
+	new_object_1 := (atperiods()).out_obj;
+	new_object_2 := (atperiods()).out_obj;
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '()'
+		INTO command_result
+		USING
+		bool_values := array_append(bool_values, command_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, new_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE lifted_opt (
+	opt text,
+	ARGS
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(periods1, periods2);
+	new_object_1 := (atperiods()).out_obj;
+	new_object_2 := (atperiods()).out_obj;
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| opt
+		|| ''
+		INTO opt_result
+		USING
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, new_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE lifted_num (
+	command text,
+	ARGS
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	command_result_start real;
+	command_result_end real;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(periods1, periods2);
+	new_object_1 := (atperiods()).out_obj;
+	new_object_2 := (atperiods()).out_obj;
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| ''
+		INTO command_result_start
+		USING
+		EXECUTE 'SELECT '
+		|| command
+		|| ''
+		INTO command_result_end
+		USING
+		values_start := array_append(bool_values, command_result_start);
+		values_end := array_append(bool_values, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, new_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE lifted_bool_values (
 	r record,
-	OUT val anyarray
+	OUT val boolean[]
 ) AS $$
 BEGIN
 	val := r.values;
 END;
 $$ LANGUAGE plpgsql STRICT
 
-CREATE OR REPLACE lifted_value_start (
+CREATE OR REPLACE lifted_num_start (
 	r record,
 	OUT val anyarray
 ) AS $$
@@ -435,7 +576,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT
 
-CREATE OR REPLACE lifted_value_end (
+CREATE OR REPLACE lifted_num_end (
 	r record,
 	OUT val anyarray
 ) AS $$
