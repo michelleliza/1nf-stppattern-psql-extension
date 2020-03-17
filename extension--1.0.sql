@@ -689,6 +689,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
+CREATE OR REPLACE FUNCTION checkoperation (
+	ts1 timestamp,
+	ts2 timestamp,
+	op text,
+	OUT o boolean
+) AS $$
+DECLARE
+
+BEGIN
+
+END;
+$$ LANGUAGE plpgsql STRICT;
+
 CREATE OR REPLACE FUNCTION checkconstraint (
 	interval_1 tsrange,
 	interval_2 tsrange,
@@ -697,33 +710,33 @@ CREATE OR REPLACE FUNCTION checkconstraint (
 ) AS $$
 DECLARE
 	rep text[];
+	rep_component text[];
 	is_first_a boolean := TRUE;
 	is_first_b boolean := TRUE;
-	i integer := 1;
-	rep_i integer := 1;
 	op_start integer;
 	op_length integer;
+	rep_i integer := 1;
 BEGIN
 	o := TRUE;
 	WHILE i <= char_length(ir) LOOP
 		IF substring(ir, i, 1) = 'a' THEN
 			IF (is_first_a) THEN
-				rep[rep_i] := lower(interval_1)::text;
-				rep_i := rep_i + 1;
+				rep := array_append(rep, lower(interval_1)::text);
+				rep_component := array_append(rep_component, 'a');
 				is_first_a := FALSE;
 			ELSE
-				rep[rep_i] := upper(interval_1)::text;
-				rep_i := rep_i + 1;
+				rep := array_append(rep, upper(interval_1)::text);
+				rep_component := array_append(rep_component, 'a');
 			END IF;
 		ELSE
 			IF substring(ir, i, 1) = 'b' THEN
 				IF (is_first_b) THEN
-					rep[rep_i] := lower(interval_2)::text;
-					rep_i := rep_i + 1;
+					rep := array_append(rep, lower(interval_2)::text);
+					rep_component := array_append(rep_component, 'b');
 					is_first_b := FALSE;
 				ELSE
-					rep[rep_i] := upper(interval_2)::text;
-					rep_i := rep_i + 1;
+					rep := array_append(rep, upper(interval_2)::text);
+					rep_component := array_append(rep_component, 'b');
 				END IF;
 			ELSE
 				i := i + 1;
@@ -733,13 +746,26 @@ BEGIN
 					op_length := op_length + 1;
 					i := i + 1;
 				END LOOP;
-				rep[rep_i] := substring(ir, op_start, op_length);
-				rep_i := rep_i + 1;
+				rep := array_append(rep, substring(ir, op_start, op_length));
+				rep_component := array_append(rep_component, 'o');
 			END IF;
 		END IF;
 		i := i + 1;
 	END LOOP;
-	RAISE NOTICE '%', rep;
+	WHILE o AND rep_i < array_length(rep, 1) LOOP
+		IF (rep_component[i] != 'o') THEN
+			IF (rep_component[i+1] != 'o') THEN
+				IF (rep[i]::timestamp >= rep[i+1]::timestamp) THEN
+					o := FALSE;
+				END IF;
+			ELSE
+				IF (((i + 2) <= array_length(rep, 1)) AND (rep_component[i+2] != 'o')) THEN
+					o := checkoperation(rep[i]::timestamp, rep[i+2]::timestamp, rep[i+1]);
+				END IF;
+			END IF;
+		END IF;
+		rep_i := rep_i + 1;
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
