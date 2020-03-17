@@ -594,43 +594,43 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT
 
-CREATE OR REPLACE FUNCTION parse (
-	const varchar[],
-	OUT o boolean
-) AS $$
-DECLARE
-	i integer := 1;
-	quan integer;
-	quan_length varchar[];
-	temp_quan varchar[];
-	is_quan boolean := FALSE;
-	op varchar;
-BEGIN
-	WHILE i <= array_length(const, 1) LOOP
-		IF const[i] = 'a' OR const[i] = 'b' OR const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
-			RAISE NOTICE '%', const[i];
-			i := i + 1;
-		ELSE
-			quan_length = '{}';
-			temp_quan = '{}';
-			is_quan := TRUE;
-			WHILE is_quan LOOP
-				quan_length := array_append(quan_length, '9');
-				temp_quan := array_append(temp_quan, const[i]);
-				i := i + 1;
-				IF const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
-					is_quan := FALSE;
-					op := const[i];
-				END IF;
-			END LOOP;
-			quan = to_number(text(temp_quan), text(quan_length));
-			RAISE NOTICE '%', quan;
-			RAISE NOTICE '%', op;
-			i := i + 1;
-		END IF;	
-	END LOOP;
-END;
-$$ LANGUAGE plpgsql STRICT;
+-- CREATE OR REPLACE FUNCTION parse (
+-- 	const varchar[],
+-- 	OUT o boolean
+-- ) AS $$
+-- DECLARE
+-- 	i integer := 1;
+-- 	quan integer;
+-- 	quan_length varchar[];
+-- 	temp_quan varchar[];
+-- 	is_quan boolean := FALSE;
+-- 	op varchar;
+-- BEGIN
+-- 	WHILE i <= array_length(const, 1) LOOP
+-- 		IF const[i] = 'a' OR const[i] = 'b' OR const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
+-- 			RAISE NOTICE '%', const[i];
+-- 			i := i + 1;
+-- 		ELSE
+-- 			quan_length = '{}';
+-- 			temp_quan = '{}';
+-- 			is_quan := TRUE;
+-- 			WHILE is_quan LOOP
+-- 				quan_length := array_append(quan_length, '9');
+-- 				temp_quan := array_append(temp_quan, const[i]);
+-- 				i := i + 1;
+-- 				IF const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
+-- 					is_quan := FALSE;
+-- 					op := const[i];
+-- 				END IF;
+-- 			END LOOP;
+-- 			quan = to_number(text(temp_quan), text(quan_length));
+-- 			RAISE NOTICE '%', quan;
+-- 			RAISE NOTICE '%', op;
+-- 			i := i + 1;
+-- 		END IF;	
+-- 	END LOOP;
+-- END;
+-- $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION vec (
 	VARIADIC elmts varchar[],
@@ -643,18 +643,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE FUNCTION form_constraint (
-  idx_1 integer,
-  idx_2 integer,
-  ir varchar[],
-  OUT o varchar[]
-) AS $$
-BEGIN
-  o[1] := idx_1::varchar;
-  o[2] := idx_2::varchar;
-  o[3] := ir::varchar;
-END;
-$$ LANGUAGE plpgsql STRICT;
+-- CREATE OR REPLACE FUNCTION form_constraint (
+--   idx_1 integer,
+--   idx_2 integer,
+--   ir varchar[],
+--   OUT o varchar[]
+-- ) AS $$
+-- BEGIN
+--   o[1] := idx_1::varchar;
+--   o[2] := idx_2::varchar;
+--   o[3] := ir::varchar;
+-- END;
+-- $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION filtering (
 	lifted_pred mbool,
@@ -689,27 +689,71 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE FUNCTION checkcontstraint (
+CREATE OR REPLACE FUNCTION checkconstraint (
 	interval_1 tsrange,
 	interval_2 tsrange,
 	ir varchar,
 	OUT o boolean
 ) AS $$
+DECLARE
+	rep text[];
+	is_first_a boolean := TRUE;
+	is_first_b boolean := TRUE;
+	i integer := 1;
+	rep_i integer := 1;
+	op_start integer;
+	op_length integer;
 BEGIN
+	o := TRUE;
+	WHILE i <= char_length(ir) LOOP
+		IF substring(ir, i, 1) = 'a' THEN
+			IF (is_first_a) THEN
+				rep[rep_i] := lower(interval_1)::text;
+				rep_i := rep_i + 1;
+				is_first_a := FALSE;
+			ELSE
+				rep[rep_i] := upper(interval_1)::text;
+				rep_i := rep_i + 1;
+			END IF;
+		ELSE
+			IF substring(ir, i, 1) = 'b' THEN
+				IF (is_first_b) THEN
+					rep[rep_i] := lower(interval_2)::text;
+					rep_i := rep_i + 1;
+					is_first_b := FALSE;
+				ELSE
+					rep[rep_i] := upper(interval_2)::text;
+					rep_i := rep_i + 1;
+				END IF;
+			ELSE
+				i := i + 1;
+				op_start := i;
+				op_length := 0;
+				WHILE substring(ir, i, 1) != ')' LOOP
+					op_length := op_length + 1;
+					i := i + 1;
+				END LOOP;
+				rep[rep_i] := substring(ir, op_start, op_length);
+				rep_i := rep_i + 1;
+			END IF;
+		END IF;
+		i := i + 1;
+	END LOOP;
+	RAISE NOTICE '%', rep;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE FUNCTION stconstraint (
-	pred_1_vals boolean[],
-	pred_1_intervals tsrange[],
-	pred_2_vals boolean[],
-	pred_2_intervals tsrange[],
-	ir varchar[],
-	OUT o boolean
-) AS $$
-BEGIN
-END;
-$$ LANGUAGE plpgsql STRICT;
+-- CREATE OR REPLACE FUNCTION stconstraint (
+-- 	pred_1_vals boolean[],
+-- 	pred_1_intervals tsrange[],
+-- 	pred_2_vals boolean[],
+-- 	pred_2_intervals tsrange[],
+-- 	ir varchar[],
+-- 	OUT o boolean
+-- ) AS $$
+-- BEGIN
+-- END;
+-- $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION pattern (
 	pred_1_vals boolean[],
