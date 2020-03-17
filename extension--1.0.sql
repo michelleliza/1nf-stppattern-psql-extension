@@ -689,6 +689,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
+CREATE OR REPLACE FUNCTION split_op (
+	op text,
+	OUT o text[]
+) AS $$
+DECLARE
+
+BEGIN
+
+END;
+$$ LANGUAGE plpgsql STRICT;
+
 CREATE OR REPLACE FUNCTION checkoperation (
 	ts1 timestamp,
 	ts2 timestamp,
