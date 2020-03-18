@@ -820,26 +820,26 @@ DECLARE
 BEGIN
 	r := split_sort_op(op);
 	IF op LIKE '%.%' THEN
-		IF array_length(r.ops) = 1 THEN
+		IF array_length(r.ops_sorted) = 1 THEN
 			--.
 				o := (ts1 = ts2);
-		ELSIF array_length(r.ops) = 2 THEN
+		ELSIF array_length(r.ops_sorted) = 2 THEN
 			--s, .
 			IF op LIKE '%s%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) = r.nums_sorted[1]);
 			--m, .
 			ELSIF op LIKE '%m%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 = n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 = r.nums_sorted[1]);
 			--h, .
 			ELSIF op LIKE '%h%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 = n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 = r.nums_sorted[1]);
 			--d, .
 			ELSIF op LIKE '%d%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 = n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 = r.nums_sorted[1]);
 			--M, .
 			ELSIF op LIKE '%M%' THEN
 				IF EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = n[1]) AND
+					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
 						  (EXTRACT(DAY FROM ts2) = EXTRACT(DAY FROM ts2)) AND
 						  (EXTRACT(HOUR FROM ts2) = EXTRACT(HOUR FROM ts2)) AND
 						  (EXTRACT(MINUTE FROM ts2) = EXTRACT(MINUTE FROM ts2)) AND
@@ -849,105 +849,105 @@ BEGIN
 						  (EXTRACT(HOUR FROM ts2) = EXTRACT(HOUR FROM ts2)) AND
 						  (EXTRACT(MINUTE FROM ts2) = EXTRACT(MINUTE FROM ts2)) AND
 						  (EXTRACT(SECOND FROM ts2) = EXTRACT(SECOND FROM ts2)) AND
-						  (EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = n[1]));
+						  (EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[1]));
 				END IF;
 			--y, .
 			ELSE
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 = n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 = r.nums_sorted[1]);
 			END IF;
-		ELSIF array_length(r.ops) = 3 THEN
+		ELSIF array_length(r.ops_sorted) = 3 THEN
 			--s, m, .
 			IF op LIKE '%s%' AND op LIKE '%m%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60));
 			--s, h, .
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
 			--s, d, .
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
 			--s, M, .
 			ELSIF op LIKE '%s%' AND op LIKE '%M%' THEN
 			
 			--s, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
 			--m, h, .
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--m, d, .
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
 			--m, M, .
 			ELSIF op LIKE '%m%' AND op LIKE '%M%' THEN
 
 			--m, y, .
 			ELSIF op LIKE '%m%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--h, d, .
 			ELSIF op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
 			--h, M, .
 			ELSIF op LIKE '%h%' AND op LIKE '%M%' THEN
 
 			--h, y, .
 			ELSIF op LIKE '%h%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
 			--d, M, .
 			ELSIF op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--d, y, .
 			ELSIF op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
 			--M, y, .
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops) = 4 THEN
+		ELSIF array_length(r.ops_sorted) = 4 THEN
 			--s, m, h, .
 			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
 			--s, m, d, .
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
 			--s, m, M, .
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' THEN
 
 			--s, m, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
 			--s, h, d, .
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--s, h, M, .
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
 
 			--s, h, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--s, d, M, .
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--s, d, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--s, M, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--m, h, d, .
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--m, h, M, .
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%h%' THEN
 
 			--m, h, y, .
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--m, d, M, .
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--m, d, y, .
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--m, M, y, .
 			ELSIF op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
@@ -956,7 +956,7 @@ BEGIN
 
 			--h, d, y, .
 			ELSIF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--h, M, y, .
 			ELSIF op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
@@ -964,21 +964,33 @@ BEGIN
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops) = 5 THEN
+		ELSIF array_length(r.ops_sorted) = 5 THEN
 			--s, m, h, d, .
 			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
 			--s, m, h, M, .
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
 
 			--s, m, h, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
+			--s, m, d, M, .
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			
+			--s, m, d, y, .
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+			--s, m, M, y, .
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--s, h, d, M, .
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--s, h, d, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+			--s, h, M, y, .
+			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--s, d, M, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
@@ -988,6 +1000,9 @@ BEGIN
 
 			--m, h, d, y, .
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+			--m, h, M, y, .
+			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--m, d, M, y, .
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
@@ -996,12 +1011,21 @@ BEGIN
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops) = 6 THEN
+		ELSIF array_length(r.ops_sorted) = 6 THEN
 			--s, m, h, d, M, .
 			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--s, m, h, d, y, .
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
+			--s, m, h, M, y, .
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--s, m, d, M, y, .
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--s, h, d, M, y, .
+			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--m, h, d, M, y, .
 			ELSE
@@ -1012,24 +1036,24 @@ BEGIN
 			
 		END IF;
 	ELSE
-		IF array_length(r.ops) = 1 THEN
+		IF array_length(r.ops_sorted) = 1 THEN
 			--s
 			IF op LIKE '%s%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) > r.nums_sorted[1]);
 			--m
 			ELSIF op LIKE '%m%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 > n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 > r.nums_sorted[1]);
 			--h
 			ELSIF op LIKE '%h%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 > n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 > r.nums_sorted[1]);
 			--d
 			ELSIF op LIKE '%d%' THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 > n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 > r.nums_sorted[1]);
 			--M
 			ELSIF op LIKE '%M%' THEN
 				IF EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > n[1]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = n[1]) AND
+					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[1]) OR 
+						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
 						   ((EXTRACT(DAY FROM ts2) > EXTRACT(DAY FROM ts2)) OR
 						    ((EXTRACT(DAY FROM ts2) = EXTRACT(DAY FROM ts2)) AND
 							 (EXTRACT(HOUR FROM ts2) > EXTRACT(HOUR FROM ts2))) OR
@@ -1041,8 +1065,8 @@ BEGIN
 							 (EXTRACT(MINUTE FROM ts2) = EXTRACT(MINUTE FROM ts2)) AND
 							 (EXTRACT(SECOND FROM ts2) > EXTRACT(SECOND FROM ts2))))));
 				ELSE
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > n[1]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = n[1]) AND
+					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[1]) OR 
+						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[1]) AND
 						   ((EXTRACT(DAY FROM ts2) > EXTRACT(DAY FROM ts2)) OR
 						    ((EXTRACT(DAY FROM ts2) = EXTRACT(DAY FROM ts2)) AND
 							 (EXTRACT(HOUR FROM ts2) > EXTRACT(HOUR FROM ts2))) OR
@@ -1056,101 +1080,101 @@ BEGIN
 				END IF;
 			--y
 			ELSE
-				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 > n[1]);
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 > r.nums_sorted[1]);
 			END IF;
-		ELSIF array_length(r.ops) = 2 THEN
+		ELSIF array_length(r.ops_sorted) = 2 THEN
 			--s, m
 			IF op LIKE '%s%' AND op LIKE '%m%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60));
 			--s, h
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
 			--s, d
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
 			--s, M
 			ELSIF op LIKE '%s%' AND op LIKE '%M%' THEN
 			
 			--s, y
 			ELSIF op LIKE '%s%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
 			--m, h
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--m, d
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
 			--m, M
 			ELSIF op LIKE '%m%' AND op LIKE '%M%' THEN
 
 			--m, y
 			ELSIF op LIKE '%m%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--h, d
 			ELSIF op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
 			--h, M
 			ELSIF op LIKE '%h%' AND op LIKE '%M%' THEN
 
 			--h, y
 			ELSIF op LIKE '%h%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
 			--d, M
 			ELSIF op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--d, y
 			ELSIF op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
 			--M, y
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops) = 3 THEN
+		ELSIF array_length(r.ops_sorted) = 3 THEN
 			--s, m, h
 			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
 			--s, m, d
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
 			--s, m, M
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' THEN
 
 			--s, m, y
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
 			--s, h, d
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--s, h, M
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
 
 			--s, h, y
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--s, d, M
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--s, d, y
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--s, M, y
 			ELSIF op LIKE '%s%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--m, h, d
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--m, h, M
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%h%' THEN
 
 			--m, h, y
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--m, d, M
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--m, d, y
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--m, M, y
 			ELSIF op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
@@ -1159,7 +1183,7 @@ BEGIN
 
 			--h, d, y
 			ELSIF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--h, M, y
 			ELSIF op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
@@ -1167,21 +1191,33 @@ BEGIN
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops) = 4 THEN
+		ELSIF array_length(r.ops_sorted) = 4 THEN
 			--s, m, h, d
 			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
-
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
 			--s, m, h, M
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
 
 			--s, m, h, y
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
+			--s, m, d, M
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			
+			--s, m, d, y
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+			--s, m, M, y
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--s, h, d, M
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--s, h, d, y
 			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+			--s, h, M, y
+			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--s, d, M, y
 			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
@@ -1191,6 +1227,9 @@ BEGIN
 
 			--m, h, d, y
 			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+			--m, h, M, y
+			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--m, d, M, y
 			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
@@ -1199,12 +1238,21 @@ BEGIN
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops) = 5 THEN
+		ELSIF array_length(r.ops_sorted) = 5 THEN
 			--s, m, h, d, M
 			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
 
 			--s, m, h, d, y
 			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
+			--s, m, h, M, y
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--s, m, d, M, y
+			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--s, h, d, M, y
+			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
 
 			--m, h, d, M, y
 			ELSE
@@ -1284,18 +1332,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
--- CREATE OR REPLACE FUNCTION stconstraint (
--- 	pred_1_vals boolean[],
--- 	pred_1_intervals tsrange[],
--- 	pred_2_vals boolean[],
--- 	pred_2_intervals tsrange[],
--- 	ir varchar[],
--- 	OUT o boolean
--- ) AS $$
--- BEGIN
--- END;
--- $$ LANGUAGE plpgsql STRICT;
-
 CREATE OR REPLACE FUNCTION pattern (
 	pred_1_vals boolean[],
 	pred_1_intervals tsrange[],
@@ -1331,39 +1367,3 @@ BEGIN
 	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
-
--- CREATE OR REPLACE FUNCTION pattern (
--- 	lifted_commands varchar[],
--- 	constraints varchar[],
--- 	OUT o boolean
--- ) AS $$
--- DECLARE
--- 	command varchar[];
--- 	temp_objects boolean[];
--- 	temp_intervals tsrange[];
--- 	obj_indices integer[];
--- 	inst record;
--- 	i integer := 1;
--- BEGIN
--- 	FOREACH command IN ARRAY lifted_commands LOOP
--- 		obj_indices := array_append(obj_indices, i);
--- 		FOR inst IN EXECUTE command LOOP
--- 			temp_objects := array_append(temp_objects, inst.out_b);
--- 			temp_intervals := array_append(temp_intervals, inst.out_i);
--- 			i := i + 1;
--- 		END LOOP;
--- 		obj_indices := array_append(obj_indices, i);
--- 		i := i + 1;
--- 	END LOOP;
--- 	o := TRUE;
--- 	FOR j IN RANGE 1..array_length(constraints, 1) LOOP
--- 		o := o AND stconstraint(
--- 				temp_objects[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
--- 				temp_intervals[obj_indices[(constraints[j][1]::integer)*2-1:(constraints[j][1]::integer)*2]],
--- 				temp_objects[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
--- 				temp_intervals[obj_indices[(constraints[j][2]::integer)*2-1:(constraints[j][2]::integer)*2]],
--- 				constraints[j][3]
--- 			);
--- 	END LOOP;
--- END;
--- $$ LANGUAGE plpgsql STRICT;
