@@ -691,8 +691,8 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION split_op (
 	op text,
-	OUT o text[],
-	OUT n integer[]
+	OUT ops text[],
+	OUT nums integer[]
 ) AS $$
 DECLARE
 	i integer := 1;
@@ -706,11 +706,11 @@ BEGIN
 			num_length := op_length + 1;
 			i := i + 1;
 		END LOOP;
-		o := array_append(o, substring(op, i, 1));
+		ops := array_append(o, substring(op, i, 1));
 		IF substring(op, i, 1) = '.' THEN
-			n := array_append(n, 0);
+			nums := array_append(n, 0);
 		ELSE
-			n := array_append(n, substring(op, num_start, num_length)::integer); 
+			nums := array_append(n, substring(op, num_start, num_length)::integer); 
 		END IF;
 		i := i + 1;
 	END LOOP;
@@ -724,9 +724,367 @@ CREATE OR REPLACE FUNCTION checkoperation (
 	OUT o boolean
 ) AS $$
 DECLARE
-
+	record r;
 BEGIN
+	r := split_op(op);
+	IF op LIKE '%.%' THEN
+		IF array_length(r.ops) = 1 THEN
+			--.
+				o := (ts1 = ts2);
+		ELSE IF array_length(r.ops) = 2 THEN
+			--s, .
+			IF op LIKE '%s%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) = n[1]);
+			--m, .
+			ELSE IF op LIKE '%m%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 = n[1]);
+			--h, .
+			ELSE IF op LIKE '%h%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 = n[1]);
+			--d, .
+			ELSE IF op LIKE '%d%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 = n[1]);
+			--M, .
+			ELSE IF op LIKE '%M%' THEN
 
+			--y, .
+			ELSE
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 = n[1]);
+			END IF;
+		ELSE IF array_length(r.ops) = 3 THEN
+			--s, m, .
+			IF op LIKE '%s%' AND op LIKE '%m%' THEN
+
+			--s, h, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' THEN
+
+			--s, d, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' THEN
+
+			--s, M, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%M%' THEN
+			
+			--s, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%y%' THEN
+
+			--m, h, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' THEN
+
+			--m, d, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' THEN
+
+			--m, M, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%M%' THEN
+
+			--m, y, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%y%' THEN
+
+			--h, d, .
+			ELSE IF op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--h, M, .
+			ELSE IF op LIKE '%h%' AND op LIKE '%M%' THEN
+
+			--h, y, .
+			ELSE IF op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--d, M, .
+			ELSE IF op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--d, y, .
+			ELSE IF op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--M, y, .
+			ELSE
+
+			END IF;
+		ELSE IF array_length(r.ops) = 4 THEN
+			--s, m, h, .
+			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' THEN
+
+			--s, m, d, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' THEN
+
+			--s, m, M, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' THEN
+
+			--s, m, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%y%' THEN
+
+			--s, h, d, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--s, h, M, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+
+			--s, h, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--s, d, M, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--s, d, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--s, M, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--m, h, d, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--m, h, M, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%h%' THEN
+
+			--m, h, y, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--m, d, M, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--m, d, y, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--m, M, y, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--h, d, M, .
+			ELSE IF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--h, d, y, .
+			ELSE IF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--h, M, y, .
+			ELSE IF op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--d, M, y, .
+			ELSE
+
+			END IF;
+		ELSE IF array_length(r.ops) = 5 THEN
+			--s, m, h, d, .
+			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--s, m, h, M, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+
+			--s, m, h, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--s, h, d, M, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--s, h, d, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--s, d, M, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--m, h, d, M, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--m, h, d, y, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--m, d, M, y, .
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--h, d, M, y, .
+			ELSE
+
+			END IF;
+		ELSE IF array_length(r.ops) = 6 THEN
+			--s, m, h, d, M, .
+			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--s, m, h, d, y, .
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--m, h, d, M, y, .
+			ELSE
+
+			END IF;
+		ELSE
+			--s, m, h, d, M, y, .
+			
+		END IF;
+	ELSE
+		IF array_length(r.ops) = 1 THEN
+			--s
+			IF op LIKE '%s%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) > n[1]);
+			--m
+			ELSE IF op LIKE '%m%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 > n[1]);
+			--h
+			ELSE IF op LIKE '%h%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 > n[1]);
+			--d
+			ELSE IF op LIKE '%d%' THEN
+				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 > n[1]);
+			--M
+			ELSE IF op LIKE '%M%' THEN
+				o := (((EXTRACT MONTH FROM ts2) - (EXTRACT MONTH FROM ts1) > n[1]) OR
+					   (EXTRACT MONTH FROM ts2 );
+			--y
+			ELSE
+				o := (EXTRACT(epoch FROM ts2 - ts1)/86400 >= n[1]) / 3153600 >= n[1]);
+			END IF;
+		ELSE IF array_length(r.ops) = 2 THEN
+			--s, m
+			IF op LIKE '%s%' AND op LIKE '%m%' THEN
+
+			--s, h
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' THEN
+
+			--s, d
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' THEN
+
+			--s, M
+			ELSE IF op LIKE '%s%' AND op LIKE '%M%' THEN
+			
+			--s, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%y%' THEN
+
+			--m, h
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' THEN
+
+			--m, d
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' THEN
+
+			--m, M
+			ELSE IF op LIKE '%m%' AND op LIKE '%M%' THEN
+
+			--m, y
+			ELSE IF op LIKE '%m%' AND op LIKE '%y%' THEN
+
+			--h, d
+			ELSE IF op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--h, M
+			ELSE IF op LIKE '%h%' AND op LIKE '%M%' THEN
+
+			--h, y
+			ELSE IF op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--d, M
+			ELSE IF op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--d, y
+			ELSE IF op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--M, y
+			ELSE
+
+			END IF;
+		ELSE IF array_length(r.ops) = 3 THEN
+			--s, m, h
+			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' THEN
+
+			--s, m, d
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' THEN
+
+			--s, m, M
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' THEN
+
+			--s, m, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%y%' THEN
+
+			--s, h, d
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--s, h, M
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+
+			--s, h, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--s, d, M
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--s, d, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--s, M, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--m, h, d
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--m, h, M
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%h%' THEN
+
+			--m, h, y
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--m, d, M
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--m, d, y
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--m, M, y
+			ELSE IF op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--h, d, M
+			ELSE IF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--h, d, y
+			ELSE IF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--h, M, y
+			ELSE IF op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--d, M, y
+			ELSE
+
+			END IF;
+		ELSE IF array_length(r.ops) = 4 THEN
+			--s, m, h, d
+			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+
+			--s, m, h, M
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+
+			--s, m, h, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+
+			--s, h, d, M
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--s, h, d, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--s, d, M, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--m, h, d, M
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--m, h, d, y
+			ELSE IF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--m, d, M, y
+			ELSE IF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+
+			--h, d, M, y
+			ELSE
+
+			END IF;
+		ELSE IF array_length(r.ops) = 5 THEN
+			--s, m, h, d, M
+			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+
+			--s, m, h, d, y
+			ELSE IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+
+			--m, h, d, M, y
+			ELSE
+
+			END IF;
+		ELSE
+			--s, m, h, d, M, y
+		END IF;
+	END IF;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
