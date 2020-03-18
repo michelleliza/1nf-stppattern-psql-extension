@@ -36,7 +36,7 @@ BEGIN
 		ts_2 := array_append(ts_2, lower(tsr_2));
 		ts_2 := array_append(ts_2, upper(tsr_2));
 	END LOOP;
-	IF ts_1[i_1] = ts_2[i_2] THEN
+	IF (ts_1[i_1] = ts_2[i_2]) THEN
 		out_start := ts_1[i_1];
 		i_1 = i_1 + 1;
 		i_2 = i_2 + 1;
@@ -49,7 +49,7 @@ BEGIN
       		i_2 := i_2 + 1;
     	END IF;
   	END IF;
-	WHILE i_1 <= array_length(ts_1, 1) AND i_2 <= array_length(ts_2, 1) LOOP
+	WHILE ((i_1 <= array_length(ts_1, 1)) AND (i_2 <= array_length(ts_2, 1))) LOOP
 		IF (ts_1[i_1] = ts_2[i_2]) THEN
       		out_end := ts_1[i_1];
       		IF (out_start != out_end) THEN
@@ -111,8 +111,8 @@ DECLARE
 	i integer := 1;
 BEGIN
 	out_ts := inst;
-	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
-		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+	WHILE ((i <= array_length(obj_periods, 1)) AND (lower(obj_periods[i]) <= inst)) LOOP
+		IF ((inst >= lower(obj_periods[i])) AND (inst <= upper(obj_periods[i])) AND (in_obj[i] IS NOT NULL)) THEN
 			out_v := in_obj[i];
 		END IF;
 		i := i + 1;
@@ -133,8 +133,8 @@ DECLARE
 	i integer := 1;
 BEGIN
 	out_ts := inst;
-	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
-		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+	WHILE ((i <= array_length(obj_periods, 1)) AND (lower(obj_periods[i]) <= inst)) LOOP
+		IF ((inst >= lower(obj_periods[i])) AND (inst <= upper(obj_periods[i])) AND (in_obj[i] IS NOT NULL)) THEN
 			out_v := in_obj[i];
 		END IF;
 		i := i + 1;
@@ -155,8 +155,8 @@ DECLARE
 	i integer := 1;
 BEGIN
 	out_ts := inst;
-	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
-		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+	WHILE ((i <= array_length(obj_periods, 1)) AND (lower(obj_periods[i]) <= inst)) LOOP
+		IF ((inst >= lower(obj_periods[i])) AND (inst <= upper(obj_periods[i])) AND (in_obj[i] IS NOT NULL)) THEN
 			out_v := in_obj[i];
 		END IF;
 		i := i + 1;
@@ -186,7 +186,7 @@ BEGIN
 			IF (inst = upper(obj_periods[i])) THEN
 				out_v := in_obj_end[i];
 			ELSE
-				IF (inst > lower(obj_periods[i]) AND inst < upper(obj_periods[i])) THEN
+				IF ((inst > lower(obj_periods[i])) AND (inst < upper(obj_periods[i])) AND (in_obj_start[i] IS NOT NULL) AND (in_obj_end[i] IS NOT NULL)) THEN
 					k := EXTRACT(EPOCH FROM (inst - lower(obj_periods[i]))) / EXTRACT(EPOCH FROM (upper(obj_periods[i]) - lower(obj_periods[i])));
 					out_v := in_obj_start[i] + k * (in_obj_end[i] - in_obj_start[i]);																														
 				END IF;
@@ -213,14 +213,14 @@ DECLARE
 	y real;
 BEGIN
 	out_ts := inst;
-	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
+	WHILE ((i <= array_length(obj_periods, 1)) AND (lower(obj_periods[i]) <= inst)) LOOP
 		IF (inst = lower(obj_periods[i])) THEN
 			out_v := in_obj_start[i];				 
 		ELSE
 			IF (inst = upper(obj_periods[i])) THEN
 				out_v := in_obj_end[i];
 			ELSE
-				IF (inst > lower(obj_periods[i]) AND inst < upper(obj_periods[i])) THEN
+				IF ((inst > lower(obj_periods[i])) AND (inst < upper(obj_periods[i]))) THEN
 					j := EXTRACT(EPOCH FROM (inst - lower(obj_periods[i]))) / EXTRACT(EPOCH FROM (upper(obj_periods[i]) - lower(obj_periods[i])));
 					x := ST_X(in_obj_start[i]) + j * (ST_X(in_obj_end[i]) - ST_X(in_obj_start[i]));
 					y := ST_Y(in_obj_start[i]) + j * (ST_Y(in_obj_end[i]) - ST_Y(in_obj_start[i]));
@@ -230,7 +230,7 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	IF out_v IS NULL THEN
+	IF (out_v IS NULL) THEN
 		out_v := 'POINT EMPTY';
 	END IF;
 	RETURN NEXT;
@@ -248,13 +248,13 @@ DECLARE
 	i integer := 1;
 BEGIN
 	out_ts := inst;
-	WHILE (i <= array_length(obj_periods, 1) AND lower(obj_periods[i]) <= inst) LOOP
-		IF (inst >= lower(obj_periods[i]) AND inst <= upper(obj_periods[i]) AND NOT ST_IsEmpty(in_obj[i])) THEN
+	WHILE ((i <= array_length(obj_periods, 1)) AND (lower(obj_periods[i]) <= inst)) LOOP
+		IF ((inst >= lower(obj_periods[i])) AND (inst <= upper(obj_periods[i])) AND (NOT (ST_IsEmpty(in_obj[i])))) THEN
 			out_v := in_obj[i];
 		END IF;
 		i := i + 1;
 	END LOOP;
-	IF out_v IS NULL THEN
+	IF (out_v IS NULL) THEN
 		out_v := 'POLYGON EMPTY';
 	END IF;
 	RETURN NEXT;
@@ -272,11 +272,11 @@ DECLARE
 	instant record;
 	ts tsrange;
 BEGIN
-  FOREACH ts IN ARRAY periods LOOP
-  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj, instant.out_v);
-	out_obj_periods := array_append(out_obj_periods, ts);
-  END LOOP;
+  	FOREACH ts IN ARRAY periods LOOP
+  		instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+		out_obj := array_append(out_obj, instant.out_v);
+		out_obj_periods := array_append(out_obj_periods, ts);
+  	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -291,11 +291,11 @@ DECLARE
 	instant record;
 	ts tsrange;
 BEGIN
-  FOREACH ts IN ARRAY periods LOOP
-  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj, instant.out_v);
-	out_obj_periods := array_append(out_obj_periods, ts);
-  END LOOP;
+	FOREACH ts IN ARRAY periods LOOP
+		instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+		out_obj := array_append(out_obj, instant.out_v);
+		out_obj_periods := array_append(out_obj_periods, ts);
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -310,11 +310,11 @@ DECLARE
 	instant record;
 	ts tsrange;
 BEGIN
-  FOREACH ts IN ARRAY periods LOOP
-  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj, instant.out_v);
-	out_obj_periods := array_append(out_obj_periods, ts);
-  END LOOP;
+	FOREACH ts IN ARRAY periods LOOP
+		instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+		out_obj := array_append(out_obj, instant.out_v);
+		out_obj_periods := array_append(out_obj_periods, ts);
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -332,13 +332,13 @@ DECLARE
 	instant_upper record;
 	ts tsrange;
 BEGIN
-  FOREACH ts IN ARRAY periods LOOP
-  	instant_lower := atinstant(in_obj_start, in_obj_end, in_obj_periods, lower(ts));
-	instant_upper := atinstant(in_obj_start, in_obj_end, in_obj_periods, upper(ts));
-	out_obj_start := array_append(out_obj_start, instant_lower.out_v);
-	out_obj_end := array_append(out_obj_end, instant_upper.out_v);
-	out_obj_periods := array_append(out_obj_periods, ts);
-  END LOOP;
+	FOREACH ts IN ARRAY periods LOOP
+		instant_lower := atinstant(in_obj_start, in_obj_end, in_obj_periods, lower(ts));
+		instant_upper := atinstant(in_obj_start, in_obj_end, in_obj_periods, upper(ts));
+		out_obj_start := array_append(out_obj_start, instant_lower.out_v);
+		out_obj_end := array_append(out_obj_end, instant_upper.out_v);
+		out_obj_periods := array_append(out_obj_periods, ts);
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -356,13 +356,13 @@ DECLARE
 	instant_upper record;
 	ts tsrange;
 BEGIN
-  FOREACH ts IN ARRAY periods LOOP
-  	instant_lower := atinstant(in_obj_start, in_obj_end, in_obj_periods, lower(ts));
-	instant_upper := atinstant(in_obj_start, in_obj_end, in_obj_periods, upper(ts));
-	out_obj_start := array_append(out_obj_start, instant_lower.out_v);
-	out_obj_end := array_append(out_obj_end, instant_upper.out_v);
-	out_obj_periods := array_append(out_obj_periods, ts);
-  END LOOP;
+	FOREACH ts IN ARRAY periods LOOP
+		instant_lower := atinstant(in_obj_start, in_obj_end, in_obj_periods, lower(ts));
+		instant_upper := atinstant(in_obj_start, in_obj_end, in_obj_periods, upper(ts));
+		out_obj_start := array_append(out_obj_start, instant_lower.out_v);
+		out_obj_end := array_append(out_obj_end, instant_upper.out_v);
+		out_obj_periods := array_append(out_obj_periods, ts);
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -377,11 +377,11 @@ DECLARE
 	instant record;
 	ts tsrange;
 BEGIN
-  FOREACH ts IN ARRAY periods LOOP
-  	instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
-	out_obj := array_append(out_obj, instant.out_v);
-	out_obj_periods := array_append(out_obj_periods, ts);
-  END LOOP;
+	FOREACH ts IN ARRAY periods LOOP
+		instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+		out_obj := array_append(out_obj, instant.out_v);
+		out_obj_periods := array_append(out_obj_periods, ts);
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -433,7 +433,7 @@ BEGIN
 	current_val_end := in_obj_end[i];
 	current_start := lower(in_periods[i]);
 	FOR i IN 1..array_length(in_obj, 1) LOOP
-		IF (in_obj_start[i] != current_val_start OR in_obj_end != current_val_end) THEN
+		IF ((in_obj_start[i] != current_val_start) OR (in_obj_end != current_val_end)) THEN
 			current_end := upper(in_periods[i-1]);
 			out_obj_start := array_append(out_obj_start, current_val_start);
 			out_obj_end := array_append(out_obj_end, current_val_end);
@@ -569,7 +569,7 @@ $$ LANGUAGE plpgsql STRICT
 
 CREATE OR REPLACE lifted_num_start (
 	r record,
-	OUT val anyarray
+	OUT val real[]
 ) AS $$
 BEGIN
 	val := r.value_start;
@@ -578,7 +578,7 @@ $$ LANGUAGE plpgsql STRICT
 
 CREATE OR REPLACE lifted_num_end (
 	r record,
-	OUT val anyarray
+	OUT val real[]
 ) AS $$
 BEGIN
 	val := r.value_end;
@@ -593,44 +593,6 @@ BEGIN
 	val := r.periods;
 END;
 $$ LANGUAGE plpgsql STRICT
-
--- CREATE OR REPLACE FUNCTION parse (
--- 	const varchar[],
--- 	OUT o boolean
--- ) AS $$
--- DECLARE
--- 	i integer := 1;
--- 	quan integer;
--- 	quan_length varchar[];
--- 	temp_quan varchar[];
--- 	is_quan boolean := FALSE;
--- 	op varchar;
--- BEGIN
--- 	WHILE i <= array_length(const, 1) LOOP
--- 		IF const[i] = 'a' OR const[i] = 'b' OR const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
--- 			RAISE NOTICE '%', const[i];
--- 			i := i + 1;
--- 		ELSE
--- 			quan_length = '{}';
--- 			temp_quan = '{}';
--- 			is_quan := TRUE;
--- 			WHILE is_quan LOOP
--- 				quan_length := array_append(quan_length, '9');
--- 				temp_quan := array_append(temp_quan, const[i]);
--- 				i := i + 1;
--- 				IF const[i] = 's' OR const[i] = 'm' OR const[i] = 'h' OR const[i] = 'd' OR const[i] = 'M' OR const[i] = 'y' THEN
--- 					is_quan := FALSE;
--- 					op := const[i];
--- 				END IF;
--- 			END LOOP;
--- 			quan = to_number(text(temp_quan), text(quan_length));
--- 			RAISE NOTICE '%', quan;
--- 			RAISE NOTICE '%', op;
--- 			i := i + 1;
--- 		END IF;	
--- 	END LOOP;
--- END;
--- $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION vec (
 	VARIADIC elmts varchar[],
@@ -656,21 +618,21 @@ $$ LANGUAGE plpgsql STRICT;
 -- END;
 -- $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE FUNCTION filtering (
-	lifted_pred mbool,
-	OUT o tsrange[]
-) AS $$
-DECLARE
-	i_out integer := 1;
-BEGIN
-	FOR i_in IN 1..array_length(lifted_pred, 1) LOOP
-		IF lifted_pred.units[i_in].val THEN
-			o[i_out] := lifted_pred.units[i_in].i;
-			i_out := i_out + 1;
-		END IF;
-	END LOOP;
-END;
-$$ LANGUAGE plpgsql STRICT;
+-- CREATE OR REPLACE FUNCTION filtering (
+-- 	lifted_pred mbool,
+-- 	OUT o tsrange[]
+-- ) AS $$
+-- DECLARE
+-- 	i_out integer := 1;
+-- BEGIN
+-- 	FOR i_in IN 1..array_length(lifted_pred, 1) LOOP
+-- 		IF lifted_pred.units[i_in].val THEN
+-- 			o[i_out] := lifted_pred.units[i_in].i;
+-- 			i_out := i_out + 1;
+-- 		END IF;
+-- 	END LOOP;
+-- END;
+-- $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION filtering (
 	pred_values boolean[],
@@ -703,27 +665,27 @@ DECLARE
 	step integer := 1;
 	op_found boolean;
 BEGIN
-	WHILE i <= char_length(op) LOOP
+	WHILE (i <= char_length(op)) LOOP
 		num_start := i;
 		num_length := 0;
-		WHILE substring(op, i, 1) != 's' AND substring(op, i, 1) != 'm' AND substring(op, i, 1) != 'h' AND substring(op, i, 1) != 'd' AND substring(op, i, 1) != 'M' AND substring(op, i, 1) != 'y' AND substring(op, i, 1) != '.' LOOP
+		WHILE ((substring(op, i, 1) != 's') AND (substring(op, i, 1) != 'm') AND (substring(op, i, 1) != 'h') AND (substring(op, i, 1) != 'd') AND (substring(op, i, 1) != 'M') AND (substring(op, i, 1) != 'y') AND (substring(op, i, 1) != '.')) LOOP
 			num_length := num_length + 1;
 			i := i + 1;
 		END LOOP;
 		ops := array_append(ops, substring(op, i, 1));
-		IF substring(op, i, 1) = '.' THEN
+		IF (substring(op, i, 1) = '.') THEN
 			nums := array_append(nums, 0);
 		ELSE
 			nums := array_append(nums, substring(op, num_start, num_length)::integer); 
 		END IF;
 		i := i + 1;
 	END LOOP;
-	WHILE step <= 7 LOOP
-		IF step = 1 THEN
+	WHILE (step <= 7) LOOP
+		IF (step = 1) THEN
 			i := 1;
 			op_found := FALSE;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = 's' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = 's') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -731,12 +693,11 @@ BEGIN
 				i := i + 1;
 			END LOOP;
 			step := step + 1;
-		ELSIF step = 2 THEN
+		ELSIF (step = 2) THEN
 			i := 1;
 			op_found := FALSE;
-			RAISE NOTICE '%', i;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = 'm' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = 'm') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -744,11 +705,11 @@ BEGIN
 				i := i + 1;
 			END LOOP;
 			step := step + 1;
-		ELSIF step = 3 THEN
+		ELSIF (step = 3) THEN
 			i := 1;
 			op_found := FALSE;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = 'h' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = 'h') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -756,11 +717,11 @@ BEGIN
 				i := i + 1;
 			END LOOP;
 			step := step + 1;
-		ELSIF step = 4 THEN
+		ELSIF (step = 4) THEN
 			i := 1;
 			op_found := FALSE;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = 'd' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = 'd') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -768,11 +729,11 @@ BEGIN
 				i := i + 1;
 			END LOOP;
 			step := step + 1;
-		ELSIF step = 5 THEN
+		ELSIF (step = 5) THEN
 			i := 1;
 			op_found := FALSE;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = 'M' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = 'M') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -780,11 +741,11 @@ BEGIN
 				i := i + 1;
 			END LOOP;
 			step := step + 1;
-		ELSIF step = 6 THEN
+		ELSIF (step = 6) THEN
 			i := 1;
 			op_found := FALSE;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = 'y' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = 'y') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -795,8 +756,8 @@ BEGIN
 		ELSE
 			i := 1;
 			op_found := FALSE;
-			WHILE NOT op_found AND i <= array_length(ops, 1) LOOP
-				IF ops[i] = '.' THEN
+			WHILE ((NOT (op_found)) AND (i <= array_length(ops, 1))) LOOP
+				IF (ops[i] = '.') THEN
 					op_found := TRUE;
 					ops_sorted := array_append(ops_sorted, ops[i]);
 					nums_sorted := array_append(nums_sorted, nums[i]);
@@ -819,25 +780,25 @@ DECLARE
 	record r;
 BEGIN
 	r := split_sort_op(op);
-	IF op LIKE '%.%' THEN
-		IF array_length(r.ops_sorted) = 1 THEN
+	IF (op LIKE '%.%') THEN
+		IF (array_length(r.ops_sorted) = 1) THEN
 			--.
 				o := (ts1 = ts2);
-		ELSIF array_length(r.ops_sorted) = 2 THEN
+		ELSIF (array_length(r.ops_sorted) = 2) THEN
 			--s, .
-			IF op LIKE '%s%' THEN
+			IF (op LIKE '%s%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = r.nums_sorted[1]);
 			--m, .
-			ELSIF op LIKE '%m%' THEN
+			ELSIF (op LIKE '%m%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 = r.nums_sorted[1]);
 			--h, .
-			ELSIF op LIKE '%h%' THEN
+			ELSIF (op LIKE '%h%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 = r.nums_sorted[1]);
 			--d, .
-			ELSIF op LIKE '%d%' THEN
+			ELSIF (op LIKE '%d%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 = r.nums_sorted[1]);
 			--M, .
-			ELSIF op LIKE '%M%' THEN
+			ELSIF (op LIKE '%M%') THEN
 				IF EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2) THEN
 					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
 						  (EXTRACT(DAY FROM ts2) = EXTRACT(DAY FROM ts2)) AND
@@ -855,110 +816,115 @@ BEGIN
 			ELSE
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 = r.nums_sorted[1]);
 			END IF;
-		ELSIF array_length(r.ops_sorted) = 3 THEN
+		ELSIF (array_length(r.ops_sorted) = 3) THEN
 			--s, m, .
-			IF op LIKE '%s%' AND op LIKE '%m%' THEN
+			IF ((op LIKE '%s%') AND (op LIKE '%m%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60));
 			--s, h, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
 			--s, d, .
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
 			--s, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%M%' THEN
-			
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%')) THEN
+				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
+
+				ELSIF (EXTRACT(YEAR FROM ts2) < EXTRACT(YEAR FROM ts2)) THEN
+
+				ELSE
+					o := FALSE;
 			--s, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
 			--m, h, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--m, d, .
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
 			--m, M, .
-			ELSIF op LIKE '%m%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%')) THEN
 
 			--m, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--h, d, .
-			ELSIF op LIKE '%h%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
 			--h, M, .
-			ELSIF op LIKE '%h%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%')) THEN
 
 			--h, y, .
-			ELSIF op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
 			--d, M, .
-			ELSIF op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--d, y, .
-			ELSIF op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
 			--M, y, .
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops_sorted) = 4 THEN
+		ELSIF (array_length(r.ops_sorted) = 4) THEN
 			--s, m, h, .
-			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' THEN
+			IF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%h%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
 			--s, m, d, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
 			--s, m, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%M%')) THEN
 
 			--s, m, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
 			--s, h, d, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--s, h, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%M%')) THEN
 
 			--s, h, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--s, d, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--s, d, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--s, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
 
 			--m, h, d, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--m, h, M, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%h%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%h%')) THEN
 
 			--m, h, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--m, d, M, .
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--m, d, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--m, M, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
 
 			--h, d, M, .
-			ELSIF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--h, d, y, .
-			ELSIF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--h, M, y, .
-			ELSIF op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
 
 			--d, M, y, .
 			ELSE
@@ -966,46 +932,46 @@ BEGIN
 			END IF;
 		ELSIF array_length(r.ops_sorted) = 5 THEN
 			--s, m, h, d, .
-			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+			IF ((op NOT LIKE '%M%') AND (op NOT LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
 			--s, m, h, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%y%')) THEN
 
 			--s, m, h, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
 			--s, m, d, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%y%')) THEN
 			
 			--s, m, d, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, m, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%d%')) THEN
 
 			--s, h, d, M, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%y%')) THEN
 
 			--s, h, d, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, h, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%d%')) THEN
 
 			--s, d, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%h%')) THEN
 
 			--m, h, d, M, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%y%')) THEN
 
 			--m, h, d, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--m, h, M, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%d%')) THEN
 
 			--m, d, M, y, .
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%h%')) THEN
 
 			--h, d, M, y, .
 			ELSE
@@ -1013,19 +979,19 @@ BEGIN
 			END IF;
 		ELSIF array_length(r.ops_sorted) = 6 THEN
 			--s, m, h, d, M, .
-			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			IF (op NOT LIKE '%y%') THEN
 
 			--s, m, h, d, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%M%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
 			--s, m, h, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%d%') THEN
 
 			--s, m, d, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%h%') THEN
 
 			--s, h, d, M, y, .
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%m%') THEN
 
 			--m, h, d, M, y, .
 			ELSE
@@ -1036,22 +1002,22 @@ BEGIN
 			
 		END IF;
 	ELSE
-		IF array_length(r.ops_sorted) = 1 THEN
+		IF (array_length(r.ops_sorted) = 1) THEN
 			--s
-			IF op LIKE '%s%' THEN
+			IF (op LIKE '%s%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > r.nums_sorted[1]);
 			--m
-			ELSIF op LIKE '%m%' THEN
+			ELSIF (op LIKE '%m%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 60 > r.nums_sorted[1]);
 			--h
-			ELSIF op LIKE '%h%' THEN
+			ELSIF (op LIKE '%h%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 3600 > r.nums_sorted[1]);
 			--d
-			ELSIF op LIKE '%d%' THEN
+			ELSIF (op LIKE '%d%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 86400 > r.nums_sorted[1]);
 			--M
-			ELSIF op LIKE '%M%' THEN
-				IF EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2) THEN
+			ELSIF (op LIKE '%M%') THEN
+				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
 					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[1]) OR 
 						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
 						   ((EXTRACT(DAY FROM ts2) > EXTRACT(DAY FROM ts2)) OR
@@ -1082,48 +1048,48 @@ BEGIN
 			ELSE
 				o := (EXTRACT(epoch FROM ts2 - ts1) / 31536000 > r.nums_sorted[1]);
 			END IF;
-		ELSIF array_length(r.ops_sorted) = 2 THEN
+		ELSIF (array_length(r.ops_sorted) = 2) THEN
 			--s, m
-			IF op LIKE '%s%' AND op LIKE '%m%' THEN
+			IF ((op LIKE '%s%') AND (op LIKE '%m%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60));
 			--s, h
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
 			--s, d
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
 			--s, M
-			ELSIF op LIKE '%s%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%')) THEN
 			
 			--s, y
-			ELSIF op LIKE '%s%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
 			--m, h
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--m, d
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
 			--m, M
-			ELSIF op LIKE '%m%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%')) THEN
 
 			--m, y
-			ELSIF op LIKE '%m%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--h, d
-			ELSIF op LIKE '%h%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
 			--h, M
-			ELSIF op LIKE '%h%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%')) THEN
 
 			--h, y
-			ELSIF op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
 			--d, M
-			ELSIF op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--d, y
-			ELSIF op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
 			--M, y
 			ELSE
@@ -1131,128 +1097,128 @@ BEGIN
 			END IF;
 		ELSIF array_length(r.ops_sorted) = 3 THEN
 			--s, m, h
-			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' THEN
+			IF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%h%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
 			--s, m, d
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
 			--s, m, M
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%M%')) THEN
 
 			--s, m, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
 			--s, h, d
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--s, h, M
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%M%')) THEN
 
 			--s, h, y
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--s, d, M
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--s, d, y
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--s, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
 
 			--m, h, d
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--m, h, M
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%h%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%h%')) THEN
 
 			--m, h, y
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--m, d, M
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--m, d, y
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--m, M, y
-			ELSIF op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
 
 			--h, d, M
-			ELSIF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
 
 			--h, d, y
-			ELSIF op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--h, M, y
-			ELSIF op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
 
 			--d, M, y
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops_sorted) = 4 THEN
+		ELSIF (array_length(r.ops_sorted) = 4) THEN
 			--s, m, h, d
-			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' THEN
+			IF ((op NOT LIKE '%M%') AND (op NOT LIKE '%y%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
 			--s, m, h, M
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%y%')) THEN
 
 			--s, m, h, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
 			--s, m, d, M
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%y%')) THEN
 			
 			--s, m, d, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, m, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%d%')) THEN
 
 			--s, h, d, M
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%y%')) THEN
 
 			--s, h, d, y
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, h, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%d%')) THEN
 
 			--s, d, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%h%')) THEN
 
 			--m, h, d, M
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%y%')) THEN
 
 			--m, h, d, y
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%M%')) THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--m, h, M, y
-			ELSIF op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%d%')) THEN
 
 			--m, d, M, y
-			ELSIF op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%h%')) THEN
 
 			--h, d, M, y
 			ELSE
 
 			END IF;
-		ELSIF array_length(r.ops_sorted) = 5 THEN
+		ELSIF (array_length(r.ops_sorted) = 5) THEN
 			--s, m, h, d, M
-			IF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' THEN
+			IF (op NOT LIKE '%y%') THEN
 
 			--s, m, h, d, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%M%') THEN
 				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
 			--s, m, h, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%h%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%d%') THEN
 
 			--s, m, d, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%m%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%h%') THEN
 
 			--s, h, d, M, y
-			ELSIF op LIKE '%s%' AND op LIKE '%h%' AND op LIKE '%d%' AND op LIKE '%M%' AND op LIKE '%y%' THEN
+			ELSIF (op NOT LIKE '%m%') THEN
 
 			--m, h, d, M, y
 			ELSE
@@ -1281,8 +1247,8 @@ DECLARE
 	rep_i integer := 1;
 BEGIN
 	o := TRUE;
-	WHILE i <= char_length(ir) LOOP
-		IF substring(ir, i, 1) = 'a' THEN
+	WHILE (i <= char_length(ir)) LOOP
+		IF (substring(ir, i, 1) = 'a') THEN
 			IF (is_first_a) THEN
 				rep := array_append(rep, lower(interval_1)::text);
 				rep_component := array_append(rep_component, 'a');
@@ -1292,7 +1258,7 @@ BEGIN
 				rep_component := array_append(rep_component, 'a');
 			END IF;
 		ELSE
-			IF substring(ir, i, 1) = 'b' THEN
+			IF (substring(ir, i, 1) = 'b') THEN
 				IF (is_first_b) THEN
 					rep := array_append(rep, lower(interval_2)::text);
 					rep_component := array_append(rep_component, 'b');
@@ -1305,7 +1271,7 @@ BEGIN
 				i := i + 1;
 				op_start := i;
 				op_length := 0;
-				WHILE substring(ir, i, 1) != ')' LOOP
+				WHILE (substring(ir, i, 1) != ')') LOOP
 					op_length := op_length + 1;
 					i := i + 1;
 				END LOOP;
@@ -1315,7 +1281,7 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	WHILE o AND rep_i < array_length(rep, 1) LOOP
+	WHILE (o AND (rep_i < array_length(rep, 1))) LOOP
 		IF (rep_component[i] != 'o') THEN
 			IF (rep_component[i+1] != 'o') THEN
 				IF (rep[i]::timestamp >= rep[i+1]::timestamp) THEN
@@ -1353,11 +1319,11 @@ BEGIN
 
 	--Main
 	o := FALSE;
-	WHILE NOT o AND ir_i <= array_length(ir, 1) LOOP
+	WHILE ((NOT o) AND (ir_i <= array_length(ir, 1))) LOOP
 		i_1 := 1;
-		WHILE NOT o AND i_1 <= array_length(true_intervals_1, 1) LOOP
+		WHILE ((NOT o) AND (i_1 <= array_length(true_intervals_1, 1))) LOOP
 			i_2 := 1;
-			WHILE NOT o AND i_2 <= array_length(true_intervals_2, 1) LOOP
+			WHILE ((NOT o) AND (i_2 <= array_length(true_intervals_2, 1))) LOOP
 				i_2 := i_2 + 1;
 				o := checkcontstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
 			END LOOP;
