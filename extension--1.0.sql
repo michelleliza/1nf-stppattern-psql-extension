@@ -691,12 +691,29 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION split_op (
 	op text,
-	OUT o text[]
+	OUT o text[],
+	OUT n integer[]
 ) AS $$
 DECLARE
-
+	i integer := 1;
+	num_start integer;
+	num_length integer;
 BEGIN
-
+	WHILE i <= char_length(op) LOOP
+		num_start := i;
+		num_length := 0;
+		WHILE substring(op, i, 1) != 's' OR substring(op, i, 1) != 'm' OR substring(op, i, 1) != 'h' OR substring(op, i, 1) != 'd' OR substring(op, i, 1) != 'M' OR substring(op, i, 1) != 'y' OR substring(op, i, 1) != '.' LOOP
+			num_length := op_length + 1;
+			i := i + 1;
+		END LOOP;
+		o := array_append(o, substring(op, i, 1));
+		IF substring(op, i, 1) = '.' THEN
+			n := array_append(n, 0);
+		ELSE
+			n := array_append(n, substring(op, num_start, num_length)::integer); 
+		END IF;
+		i := i + 1;
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
