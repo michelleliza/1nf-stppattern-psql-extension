@@ -11,8 +11,8 @@ CREATE TYPE mbool AS (
 );
 
 CREATE OR REPLACE FUNCTION partitioning (
-	interval_1 tsrange[],
-	interval_2 tsrange[],
+	intervals_1 tsrange[],
+	intervals_2 tsrange[],
 	OUT o tsrange[]
 ) AS $$
 DECLARE
@@ -26,12 +26,12 @@ DECLARE
 	out_start timestamp;
   	out_end timestamp;
 BEGIN
-	FOREACH tsr_1 IN ARRAY interval_1
+	FOREACH tsr_1 IN ARRAY intervals_1
 	LOOP
 		ts_1 := array_append(ts_1, lower(tsr_1));
 		ts_1 := array_append(ts_1, upper(tsr_1));
 	END LOOP;
-	FOREACH tsr_2 IN ARRAY interval_2
+	FOREACH tsr_2 IN ARRAY intervals_2
 	LOOP
 		ts_2 := array_append(ts_2, lower(tsr_2));
 		ts_2 := array_append(ts_2, upper(tsr_2));
@@ -118,7 +118,6 @@ BEGIN
 		i := i + 1;
 	END LOOP;
 	END IF;
-	RETURN NEXT;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -140,7 +139,6 @@ BEGIN
 		i := i + 1;
 	END LOOP;
 	END IF;
-	RETURN NEXT;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -162,7 +160,6 @@ BEGIN
 		i := i + 1;
 	END LOOP;
 	END IF;
-	RETURN NEXT;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -194,7 +191,6 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	RETURN NEXT;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -202,7 +198,7 @@ CREATE OR REPLACE FUNCTION atinstant (
 	in_obj_start geometry(POINT)[],
 	in_obj_end geometry(POINT)[],
 	obj_periods tsrange[],
-	inst timestamp without time zone
+	inst timestamp without time zone,
 	OUT out_v geometry(POINT),
 	OUT out_ts timestamp without time zone
 ) AS $$
@@ -233,7 +229,6 @@ BEGIN
 	IF (out_v IS NULL) THEN
 		out_v := 'POINT EMPTY';
 	END IF;
-	RETURN NEXT;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -257,7 +252,6 @@ BEGIN
 	IF (out_v IS NULL) THEN
 		out_v := 'POLYGON EMPTY';
 	END IF;
-	RETURN NEXT;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -378,7 +372,7 @@ DECLARE
 	ts tsrange;
 BEGIN
 	FOREACH ts IN ARRAY periods LOOP
-		instant := atinstant(in_obj_start, in_obj_start, in_obj_periods, lower(ts));
+		instant := atinstant(in_obj, in_obj_periods, lower(ts));
 		out_obj := array_append(out_obj, instant.out_v);
 		out_obj_periods := array_append(out_obj_periods, ts);
 	END LOOP;
@@ -392,23 +386,21 @@ CREATE OR REPLACE FUNCTION merging (
 	OUT out_periods tsrange[]
 ) AS $$
 DECLARE
-	i integer;
 	current_val boolean;
 	current_start timestamp;
 	current_end timestamp;
 BEGIN
-	current_val := in_obj[i];
-	current_start := lower(in_periods[i]);
+	current_val := in_obj[1];
+	current_start := lower(in_periods[1]);
 	FOR i IN 1..array_length(in_obj, 1) LOOP
 		IF (in_obj[i] != current_val) THEN
-			current_end := upper(in_periods[i-1]);
 			out_obj := array_append(out_obj, current_val);
 			out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 			current_val := in_obj[i];
 			current_start := lower(in_periods[i]);
 		END IF;
+		current_end := upper(in_periods[i]);
 	END LOOP;
-	current_end := upper(in_periods[i-1]);
 	out_obj := array_append(out_obj, current_val);
 	out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 END;
@@ -423,18 +415,16 @@ CREATE OR REPLACE FUNCTION merging (
 	OUT out_periods tsrange[]
 ) AS $$
 DECLARE
-	i integer;
 	current_val_start real;
 	current_val_end real;
 	current_start timestamp;
 	current_end timestamp;
 BEGIN
-	current_val_start := in_obj_start[i];
-	current_val_end := in_obj_end[i];
-	current_start := lower(in_periods[i]);
+	current_val_start := in_obj_start[1];
+	current_val_end := in_obj_end[1];
+	current_start := lower(in_periods[1]);
 	FOR i IN 1..array_length(in_obj, 1) LOOP
 		IF ((in_obj_start[i] != current_val_start) OR (in_obj_end != current_val_end)) THEN
-			current_end := upper(in_periods[i-1]);
 			out_obj_start := array_append(out_obj_start, current_val_start);
 			out_obj_end := array_append(out_obj_end, current_val_end);
 			out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
@@ -442,15 +432,15 @@ BEGIN
 			current_val_end := in_obj_end[i];
 			current_start := lower(in_periods[i]);
 		END IF;
+		current_end := upper(in_periods[i]);
 	END LOOP;
-	current_end := upper(in_periods[i-1]);
 	out_obj_start := array_append(out_obj_start, current_val_start);
 	out_obj_end := array_append(out_obj_end, current_val_end);
 	out_periods := out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE lifted_pred (
+CREATE OR REPLACE FUNCTION lifted_pred (
 	command text,
 	ARGS
 	OUT bool_values boolean[],
@@ -483,7 +473,47 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE lifted_opt (
+CREATE OR REPLACE FUNCTION lifted_pred (
+	command text,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	new_object_1 record;
+	new_object_2 record;
+	command_result boolean;
+	merge_result record;
+	temp_bool_values boolean[];
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(p_periods, r_periods);
+	new_object_1 := atperiods(p_start, p_end, p_periods, new_periods);
+	new_object_2 := atperiods(region, r_periods, new_periods);
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result
+		USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
+		temp_bool_values := array_append(temp_bool_values, command_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(temp_bool_values, new_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
 	ARGS
 	OUT bool_values boolean[],
@@ -516,7 +546,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE lifted_num (
+CREATE OR REPLACE FUNCTION lifted_num (
 	command text,
 	ARGS
 	OUT values_start real[],
@@ -558,7 +588,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE lifted_bool_values (
+CREATE OR REPLACE FUNCTION lifted_bool_values (
 	r record,
 	OUT val boolean[]
 ) AS $$
@@ -567,7 +597,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT
 
-CREATE OR REPLACE lifted_num_start (
+CREATE OR REPLACE FUNCTION lifted_num_start (
 	r record,
 	OUT val real[]
 ) AS $$
@@ -576,7 +606,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT
 
-CREATE OR REPLACE lifted_num_end (
+CREATE OR REPLACE FUNCTION lifted_num_end (
 	r record,
 	OUT val real[]
 ) AS $$
@@ -585,7 +615,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT
 
-CREATE OR REPLACE lifted_periods (
+CREATE OR REPLACE FUNCTION lifted_periods (
 	r record,
 	OUT val tsrange[]
 ) AS $$
@@ -771,21 +801,21 @@ END;
 $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION convert_day_time_int (
-	ts1 timestamp,
-	ts2 timestamp,
+	ts_1 timestamp,
+	ts_2 timestamp,
 	OUT diff integer
 ) AS $$
 BEGIN
-	diff := ((EXTRACT(DAY FROM ts2) - EXTRACT(DAY FROM ts1)) * 86400 +
-			 (EXTRACT(HOUR FROM ts2) - EXTRACT(HOUR FROM ts1)) * 3600 +
-			 (EXTRACT(MINUTE FROM ts2) - EXTRACT(MINUTE FROM ts1)) * 60 +
-			 (EXTRACT(SECOND FROM ts2) - EXTRACT(SECOND FROM ts1)));
+	diff := ((EXTRACT(DAY FROM ts_2) - EXTRACT(DAY FROM ts_1)) * 86400 +
+			 (EXTRACT(HOUR FROM ts_2) - EXTRACT(HOUR FROM ts_1)) * 3600 +
+			 (EXTRACT(MINUTE FROM ts_2) - EXTRACT(MINUTE FROM ts_1)) * 60 +
+			 (EXTRACT(SECOND FROM ts_2) - EXTRACT(SECOND FROM ts_1)));
 END;
 $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION checkoperation (
-	ts1 timestamp,
-	ts2 timestamp,
+	ts_1 timestamp,
+	ts_2 timestamp,
 	op text,
 	OUT o boolean
 ) AS $$
@@ -796,118 +826,118 @@ BEGIN
 	IF (op LIKE '%.%') THEN
 		IF (array_length(r.ops_sorted, 1) = 1) THEN
 			--.
-				o := (ts1 = ts2);
+				o := (ts_1 = ts_2);
 		ELSIF (array_length(r.ops_sorted, 1) = 2) THEN
 			--s, .
 			IF (op LIKE '%s%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = r.nums_sorted[1]);
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = r.nums_sorted[1]);
 			--m, .
 			ELSIF (op LIKE '%m%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60));
 			--h, .
 			ELSIF (op LIKE '%h%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 3600));
 			--d, .
 			ELSIF (op LIKE '%d%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 86400));
 			--M, .
 			ELSIF (op LIKE '%M%') THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
-						  (convert_day_time_int(ts1, ts2) = 0));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[1]) AND
-						  (convert_day_time_int(ts1, ts2) = 0));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[1]) AND
+						  (convert_day_time_int(ts_1, ts_2) = 0));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[1]) AND
+						  (convert_day_time_int(ts_1, ts_2) = 0));
 				ELSE
 					o := FALSE;
 				END IF;
 			--y, .
 			ELSE
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 31536000));
 			END IF;
 		ELSIF (array_length(r.ops_sorted, 1) = 3) THEN
 			--s, m, .
 			IF ((op LIKE '%s%') AND (op LIKE '%m%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60));
 			--s, h, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
 			--s, d, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
 			--s, M, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = r.nums_sorted[1]));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = r.nums_sorted[1]));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = r.nums_sorted[1]));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = r.nums_sorted[1]));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, y, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
 			--m, h, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--m, d, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
 			--m, M, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, y, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--h, d, .
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
 			--h, M, .
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, y, .
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
 			--d, M, .
 			ELSIF ((op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--d, y, .
 			ELSIF ((op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
 			--M, y, .
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
-						  (convert_day_time_int(ts1, ts2) = 0));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[1]) AND
-						  (convert_day_time_int(ts1, ts2) = 0));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[1]) AND
+						  (convert_day_time_int(ts_1, ts_2) = 0));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[1]) AND
+						  (convert_day_time_int(ts_1, ts_2) = 0));
 				ELSE
 					o := FALSE;
 				END IF;
@@ -915,141 +945,141 @@ BEGIN
 		ELSIF (array_length(r.ops_sorted, 1) = 4) THEN
 			--s, m, h, .
 			IF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%h%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
 			--s, m, d, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
 			--s, m, M, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, y, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
 			--s, h, d, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--s, h, M, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, y, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--s, d, M, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, d, y, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--s, M, y, .
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = r.nums_sorted[1]));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = r.nums_sorted[1]));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = r.nums_sorted[1]));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = r.nums_sorted[1]));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--m, h, M, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%h%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, y, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--m, d, M, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, d, y, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--m, M, y, .
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, d, M, .
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, d, y, .
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--h, M, y, .
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--d, M, y, .
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
@@ -1057,126 +1087,126 @@ BEGIN
 		ELSIF array_length(r.ops_sorted, 1) = 5 THEN
 			--s, m, h, d, .
 			IF ((op NOT LIKE '%M%') AND (op NOT LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
 			--s, m, h, M, .
 			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, h, y, .
 			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
 			--s, m, d, M, .
 			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, d, y, .
 			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, m, M, y, .
 			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%d%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, d, M, .
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, d, y, .
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, h, M, y, .
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%d%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, d, M, y, .
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%h%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, M, .
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, y, .
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--m, h, M, y, .
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%d%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, d, M, y, .
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%h%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, d, M, y, .
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
@@ -1184,71 +1214,71 @@ BEGIN
 		ELSIF array_length(r.ops_sorted, 1) = 6 THEN
 			--s, m, h, d, M, .
 			IF (op NOT LIKE '%y%') THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[5]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[5]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[5]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[5]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, h, d, y, .
 			ELSIF (op NOT LIKE '%M%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
 			--s, m, h, M, y, .
 			ELSIF (op NOT LIKE '%d%') THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, d, M, y, .
 			ELSIF (op NOT LIKE '%h%') THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, d, M, y, .
 			ELSIF (op NOT LIKE '%m%') THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, M, y, .
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400)));
 				ELSE
 					o := FALSE;
 				END IF;
 			END IF;
 		ELSE
 			--s, m, h, d, M, y, .
-			IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[6]) THEN
-				o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[5]) AND
-					  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
-			ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[6]) THEN
-				o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[5]) AND
-					  (convert_day_time_int(ts1, ts2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
+			IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[6]) THEN
+				o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[5]) AND
+					  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
+			ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[6]) THEN
+				o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[5]) AND
+					  (convert_day_time_int(ts_1, ts_2) = (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400)));
 			ELSE
 				o := FALSE;
 			END IF;
@@ -1257,126 +1287,126 @@ BEGIN
 		IF (array_length(r.ops_sorted, 1) = 1) THEN
 			--s
 			IF (op LIKE '%s%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > r.nums_sorted[1]);
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > r.nums_sorted[1]);
 			--m
 			ELSIF (op LIKE '%m%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60));
 			--h
 			ELSIF (op LIKE '%h%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 3600));
 			--d
 			ELSIF (op LIKE '%d%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 86400));
 			--M
 			ELSIF (op LIKE '%M%') THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[1]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
-						   (convert_day_time_int(ts1, ts2) > 0)));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[1]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[1]) AND
-						   (convert_day_time_int(ts1, ts2) > 0)));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[1]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[1]) AND
+						   (convert_day_time_int(ts_1, ts_2) > 0)));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[1]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[1]) AND
+						   (convert_day_time_int(ts_1, ts_2) > 0)));
 				ELSE
 					o := FALSE;
 				END IF;
 			--y
 			ELSE
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 31536000));
 			END IF;
 		ELSIF (array_length(r.ops_sorted, 1) = 2) THEN
 			--s, m
 			IF ((op LIKE '%s%') AND (op LIKE '%m%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60));
 			--s, h
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600));
 			--s, d
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400));
 			--s, M
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > r.nums_sorted[1])));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > r.nums_sorted[1])));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > r.nums_sorted[1])));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > r.nums_sorted[1])));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, y
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 31536000));
 			--m, h
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--m, d
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400));
 			--m, M
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, y
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600));
 			--h, d
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400));
 			--h, M
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, y
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 31536000));
 			--d, M
 			ELSIF ((op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--d, y
 			ELSIF ((op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 86400 + r.nums_sorted[2] * 31536000));
 			--M, y
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[1]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[1]) AND
-						   (convert_day_time_int(ts1, ts2) > 0)));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[2]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[1]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[1]) AND
-						   (convert_day_time_int(ts1, ts2) > 0)));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[1]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[1]) AND
+						   (convert_day_time_int(ts_1, ts_2) > 0)));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[2]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[1]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[1]) AND
+						   (convert_day_time_int(ts_1, ts_2) > 0)));
 				ELSE
 					o := FALSE;
 				END IF;
@@ -1384,161 +1414,161 @@ BEGIN
 		ELSIF array_length(r.ops_sorted, 1) = 3 THEN
 			--s, m, h
 			IF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%h%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600));
 			--s, m, d
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400));
 			--s, m, M
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, y
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%m%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 31536000));
 			--s, h, d
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--s, h, M
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, y
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--s, d, M
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, d, y
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--s, M, y
 			ELSIF ((op LIKE '%s%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > r.nums_sorted[1])));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > r.nums_sorted[1])));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > r.nums_sorted[1])));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > r.nums_sorted[1])));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%d%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400));
 			--m, h, M
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%h%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, y
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%h%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 31536000));
 			--m, d, M
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, d, y
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--m, M, y
 			ELSIF ((op LIKE '%m%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, d, M
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%M%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, d, y
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%d%') AND (op LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400 + r.nums_sorted[3] * 31536000));
 			--h, M, y
 			ELSIF ((op LIKE '%h%') AND (op LIKE '%M%') AND (op LIKE '%y%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--d, M, y
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[3]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[2]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[2]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[3]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[2]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[2]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
@@ -1546,146 +1576,146 @@ BEGIN
 		ELSIF (array_length(r.ops_sorted, 1) = 4) THEN
 			--s, m, h, d
 			IF ((op NOT LIKE '%M%') AND (op NOT LIKE '%y%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400));
 			--s, m, h, M
 			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, h, y
 			ELSIF ((op NOT LIKE '%d%') AND (op LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 31536000));
 			--s, m, d, M
 			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, d, y
 			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, m, M, y
 			ELSIF ((op NOT LIKE '%h%') AND (op NOT LIKE '%d%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, d, M
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, d, y
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--s, h, M, y
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%d%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, d, M, y
 			ELSIF ((op NOT LIKE '%m%') AND (op NOT LIKE '%h%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, M
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%y%')) THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, y
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%M%')) THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400 + r.nums_sorted[4] * 31536000));
 			--m, h, M, y
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%d%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, d, M, y
 			ELSIF ((op NOT LIKE '%s%') AND (op NOT LIKE '%h%')) THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--h, d, M, y
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[4]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[3]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[3]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[4]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[3]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[3]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 3600 + r.nums_sorted[2] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
@@ -1693,83 +1723,83 @@ BEGIN
 		ELSIF (array_length(r.ops_sorted, 1) = 5) THEN
 			--s, m, h, d, M
 			IF (op NOT LIKE '%y%') THEN
-				IF (EXTRACT(YEAR FROM ts1) = EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[5]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[5]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
-				ELSIF (EXTRACT(YEAR FROM ts1) < EXTRACT(YEAR FROM ts2)) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[5]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[5]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
+				IF (EXTRACT(YEAR FROM ts_1) = EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[5]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[5]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
+				ELSIF (EXTRACT(YEAR FROM ts_1) < EXTRACT(YEAR FROM ts_2)) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[5]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[5]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, h, d, y
 			ELSIF (op NOT LIKE '%M%') THEN
-				o := (EXTRACT(epoch FROM ts2 - ts1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
+				o := (EXTRACT(epoch FROM ts_2 - ts_1) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400 + r.nums_sorted[5] * 31536000));
 			--s, m, h, M, y
 			ELSIF (op NOT LIKE '%d%') THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, m, d, M, y
 			ELSIF (op NOT LIKE '%h%') THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--s, h, d, M, y
 			ELSIF (op NOT LIKE '%m%') THEN
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			--m, h, d, M, y
 			ELSE
-				IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
-				ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[5]) THEN
-					o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[4]) OR 
-						  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[4]) AND
-						   (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
+				ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[5]) THEN
+					o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[4]) OR 
+						  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[4]) AND
+						   (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] * 60 + r.nums_sorted[2] * 3600 + r.nums_sorted[3] * 86400))));
 				ELSE
 					o := FALSE;
 				END IF;
 			END IF;
 		ELSE
 			--s, m, h, d, M, y
-			IF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) = r.nums_sorted[6]) THEN
-				o := ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) > r.nums_sorted[5]) OR 
-					  ((EXTRACT(MONTH FROM ts2) - EXTRACT(MONTH FROM ts1) = r.nums_sorted[5]) AND
-					  (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
-			ELSIF ((EXTRACT(YEAR FROM ts2) - EXTRACT(YEAR FROM ts1)) > r.nums_sorted[6]) THEN
-				o := ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) > r.nums_sorted[5]) OR 
-					  ((EXTRACT(MONTH FROM ts2) + (12 - EXTRACT(MONTH FROM ts1)) = r.nums_sorted[5]) AND
-					  (convert_day_time_int(ts1, ts2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
+			IF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) = r.nums_sorted[6]) THEN
+				o := ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) > r.nums_sorted[5]) OR 
+					  ((EXTRACT(MONTH FROM ts_2) - EXTRACT(MONTH FROM ts_1) = r.nums_sorted[5]) AND
+					  (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
+			ELSIF ((EXTRACT(YEAR FROM ts_2) - EXTRACT(YEAR FROM ts_1)) > r.nums_sorted[6]) THEN
+				o := ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) > r.nums_sorted[5]) OR 
+					  ((EXTRACT(MONTH FROM ts_2) + (12 - EXTRACT(MONTH FROM ts_1)) = r.nums_sorted[5]) AND
+					  (convert_day_time_int(ts_1, ts_2) > (r.nums_sorted[1] + r.nums_sorted[2] * 60 + r.nums_sorted[3] * 3600 + r.nums_sorted[4] * 86400))));
 			ELSE
 				o := FALSE;
 			END IF;
