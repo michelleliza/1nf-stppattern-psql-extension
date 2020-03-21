@@ -513,30 +513,131 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
+CREATE OR REPLACE FUNCTION lifted_pred (
+	command text,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	region geometry(POLYGON),
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	merge_result record;
+	temp_bool_values boolean[];
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result
+		USING p_start[i], region;
+		temp_bool_values := array_append(temp_bool_values, command_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(temp_bool_values, new_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
 CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
-	ARGS
+	r1 real[],
+	r2_vals_start real[],
+	r2_vals_end real[],
+	r2_periods tsrange[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	temp_bool_values boolean[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r2_periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1, r2_vals_start[i];
+		temp_bool_values := array_append(temp_bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(temp_bool_values, r2_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
+	r1_vals_start real[],
+	r1_vals_end real[],
+	r1_periods tsrange[],
+	r2 real[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	temp_bool_values boolean[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r1_periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1_vals_start[i], r2;
+		temp_bool_values := array_append(temp_bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(temp_bool_values, new_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
+	r1_vals_start real[],
+	r1_vals_end real[],
+	r1_periods tsrange[],
+	r2_vals_start real[],
+	r2_vals_end real[],
+	r2_periods tsrange[],
 	OUT bool_values boolean[],
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
 	new_periods tsrange[];
+	new_object_1 record;
+	new_object_2 record;
 	opt_result boolean;
+	temp_bool_values boolean[]
 	merge_result record;
 BEGIN
 	--Preprocessing
-	new_periods := partitioning(periods1, periods2);
-	new_object_1 := (atperiods()).out_obj;
-	new_object_2 := (atperiods()).out_obj;
+	new_periods := partitioning(r1_periods, r2_periods);
+	new_object_1 := atperiods(r1_vals_start, r1_vals_end, r1_periods, new_periods);
+	new_object_2 := atperiods(r2_vals_start, r2_vals_end, r2_periods, new_periods);
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
+		EXECUTE 'SELECT $1'
 		|| opt
-		|| ''
+		|| '$2'
 		INTO opt_result
-		USING
-		bool_values := array_append(bool_values, opt_result);
+		USING r1_vals_start[i], r2_vals_start[i];
+		temp_bool_values := array_append(temp_bool_values, opt_result);
 	END LOOP;
 
 	--Postprocessing
@@ -593,27 +694,27 @@ CREATE OR REPLACE FUNCTION lifted_bool_values (
 	OUT val boolean[]
 ) AS $$
 BEGIN
-	val := r.values;
+	val := r.bool_values;
 END;
-$$ LANGUAGE plpgsql STRICT
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_num_start (
 	r record,
 	OUT val real[]
 ) AS $$
 BEGIN
-	val := r.value_start;
+	val := r.values_start;
 END;
-$$ LANGUAGE plpgsql STRICT
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_num_end (
 	r record,
 	OUT val real[]
 ) AS $$
 BEGIN
-	val := r.value_end;
+	val := r.values_end;
 END;
-$$ LANGUAGE plpgsql STRICT
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_periods (
 	r record,
@@ -622,7 +723,7 @@ CREATE OR REPLACE FUNCTION lifted_periods (
 BEGIN
 	val := r.periods;
 END;
-$$ LANGUAGE plpgsql STRICT
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION vec (
 	VARIADIC elmts varchar[],
@@ -1815,6 +1916,7 @@ CREATE OR REPLACE FUNCTION checkconstraint (
 	OUT o boolean
 ) AS $$
 DECLARE
+	i integer := 1;
 	rep text[];
 	rep_component text[];
 	is_first_a boolean := TRUE;
@@ -1901,8 +2003,8 @@ BEGIN
 		WHILE ((NOT o) AND (i_1 <= array_length(true_intervals_1, 1))) LOOP
 			i_2 := 1;
 			WHILE ((NOT o) AND (i_2 <= array_length(true_intervals_2, 1))) LOOP
+				o := checkconstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
 				i_2 := i_2 + 1;
-				o := checkcontstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
 			END LOOP;
 			i_1 := i_1 + 1;
 		END LOOP;
