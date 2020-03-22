@@ -450,21 +450,22 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
-	temp_bool_values boolean[];
 	merge_result record;
 BEGIN
 	--Main
 	FOR i IN 1..array_length(p_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1)'
-		INTO command_result
-		USING p_start[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF (NOT ST_IsEmpty(p_start[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1)'
+			INTO command_result
+			USING p_start[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, p_periods);
+	merge_result := merging(bool_values, p_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -482,20 +483,21 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 DECLARE
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Main
 	FOR i IN 1..array_length(p_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING p_start[i], geom;
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF (NOT ST_IsEmpty(p_start[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING p_start[i], geom;
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, p_periods);
+	merge_result := merging(bool_values, p_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -513,20 +515,21 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 DECLARE
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Main
 	FOR i IN 1..array_length(p_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING geom, p_start[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF (NOT ST_IsEmpty(p_start[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING geom, p_start[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, p_periods);
+	merge_result := merging(bool_values, p_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -548,7 +551,6 @@ DECLARE
 	new_object_2 record;
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Preprocessing
 	new_periods := partitioning(p1_periods, p2_periods);
@@ -557,16 +559,18 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING new_object_1.out_obj_start[i], new_object_2.out_obj_start[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj_start[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING new_object_1.out_obj_start[i], new_object_2.out_obj_start[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, new_periods);
+	merge_result := merging(bool_values, new_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -581,21 +585,22 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
-	temp_bool_values boolean[];
 	merge_result record;
 BEGIN
 	--Main
 	FOR i IN 1..array_length(r_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1)'
-		INTO command_result
-		USING region[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF (NOT ST_IsEmpty(region[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1)'
+			INTO command_result
+			USING region[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, r_periods);
+	merge_result := merging(bool_values, r_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -612,20 +617,21 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 DECLARE
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Main
 	FOR i IN 1..array_length(r_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING region[i], geom;
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF (NOT ST_IsEmpty(region[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING region[i], geom;
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, r_periods);
+	merge_result := merging(bool_values, r_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -642,20 +648,21 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 DECLARE
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Main
 	FOR i IN 1..array_length(r_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING geom, region[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF (NOT ST_IsEmpty(region[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING geom, region[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, p_periods);
+	merge_result := merging(bool_values, p_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -675,7 +682,6 @@ DECLARE
 	new_object_2 record;
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Preprocessing
 	new_periods := partitioning(r1_periods, r2_periods);
@@ -684,16 +690,18 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(r_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING r1[i], r2[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING new_object_1.out_obj[i], new_object_2.out_obj[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, p_periods);
+	merge_result := merging(bool_values, p_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -714,7 +722,6 @@ DECLARE
 	new_object_2 record;
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Preprocessing
 	new_periods := partitioning(p_periods, r_periods);
@@ -723,16 +730,18 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
+			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, new_periods);
+	merge_result := merging(bool_values, new_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -754,7 +763,6 @@ DECLARE
 	new_object_2 record;
 	command_result boolean;
 	merge_result record;
-	temp_bool_values boolean[];
 BEGIN
 	--Preprocessing
 	new_periods := partitioning(p_periods, r_periods);
@@ -763,16 +771,17 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result
-		USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
-		temp_bool_values := array_append(temp_bool_values, command_result);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
+			bool_values := array_append(bool_values, command_result);
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, new_periods);
+	merge_result := merging(bool_values, new_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -789,7 +798,6 @@ CREATE OR REPLACE FUNCTION lifted_opt (
 ) AS $$
 DECLARE
 	opt_result boolean;
-	temp_bool_values boolean[];
 	merge_result record;
 BEGIN
 	--Main
@@ -799,11 +807,11 @@ BEGIN
 		|| '$2'
 		INTO opt_result
 		USING r1, r2_vals_start[i];
-		temp_bool_values := array_append(temp_bool_values, opt_result);
+		bool_values := array_append(bool_values, opt_result);
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, r2_periods);
+	merge_result := merging(bool_values, r2_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -820,7 +828,6 @@ CREATE OR REPLACE FUNCTION lifted_opt (
 ) AS $$
 DECLARE
 	opt_result boolean;
-	temp_bool_values boolean[];
 	merge_result record;
 BEGIN
 	--Main
@@ -830,11 +837,11 @@ BEGIN
 		|| '$2'
 		INTO opt_result
 		USING r1_vals_start[i], r2;
-		temp_bool_values := array_append(temp_bool_values, opt_result);
+		bool_values := array_append(bool_values, opt_result);
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(temp_bool_values, new_periods);
+	merge_result := merging(bool_values, new_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -856,7 +863,6 @@ DECLARE
 	new_object_1 record;
 	new_object_2 record;
 	opt_result boolean;
-	temp_bool_values boolean[]
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -871,7 +877,7 @@ BEGIN
 		|| '$2'
 		INTO opt_result
 		USING r1_vals_start[i], r2_vals_start[i];
-		temp_bool_values := array_append(temp_bool_values, opt_result);
+		bool_values := array_append(bool_values, opt_result);
 	END LOOP;
 
 	--Postprocessing
@@ -892,23 +898,24 @@ CREATE OR REPLACE FUNCTION lifted_num (
 ) AS $$
 DECLARE
 	command_result boolean;
-	temp_bool_values boolean[];
 	merge_result record;
 BEGIN
 	--Main
 	FOR i IN 1..array_length(p_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1)'
-		INTO command_result_start
-		USING p_start[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1)'
-		INTO command_result_end
-		USING p_end[i];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(p_start[i])) AND (NOT ST_IsEmpty(p_end[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1)'
+			INTO command_result_start
+			USING p_start[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1)'
+			INTO command_result_end
+			USING p_end[i];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -935,18 +942,20 @@ DECLARE
 BEGIN
 	--Main
 	FOR i IN 1..array_length(p_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING p_start[i], geom;
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING p_end[i], geom;
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(p_start[i])) AND (NOT ST_IsEmpty(p_end[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING p_start[i], geom;
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING p_end[i], geom;
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -973,18 +982,20 @@ DECLARE
 BEGIN
 	--Main
 	FOR i IN 1..array_length(p_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING geom, p_start[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING geom, p_end[i];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(p_start[i])) AND (NOT ST_IsEmpty(p_end[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING geom, p_start[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING geom, p_end[i];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1021,18 +1032,21 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING new_object_1.out_obj_start[i], new_object_2.out_obj_start[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING new_object_1.out_obj_end[i], new_object_2.out_obj_end[i];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_1.out_obj_end[i])) AND
+			(NOT ST_IsEmpty(new_object_2.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj_end[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING new_object_1.out_obj_start[i], new_object_2.out_obj_start[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING new_object_1.out_obj_end[i], new_object_2.out_obj_end[i];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1057,18 +1071,20 @@ DECLARE
 BEGIN
 	--Main
 	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1)'
-		INTO command_result_start
-		USING r[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1)'
-		INTO command_result_end
-		USING r[i+1];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(region[i])) AND (NOT ST_IsEmpty(region[i+1]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1)'
+			INTO command_result_start
+			USING region[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1)'
+			INTO command_result_end
+			USING region[i+1];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1094,18 +1110,20 @@ DECLARE
 BEGIN
 	--Main
 	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING r[i], geom;
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING r[i+1], geom;
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(region[i])) AND (NOT ST_IsEmpty(region[i+1]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING region[i], geom;
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING region[i+1], geom;
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1131,18 +1149,20 @@ DECLARE
 BEGIN
 	--Main
 	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING geom, r[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING geom, r[i+1];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(region[i])) AND (NOT ST_IsEmpty(region[i+1]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING geom, region[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING geom, region[i+1];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1177,18 +1197,21 @@ BEGIN
 
 	--Main
 	FOR i IN 1..(array_length(new_periods, 1) - 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING new_object_1.out_obj[i], new_object_2.out_obj[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING new_object_1.out_obj[i+1], new_object_2.out_obj[i+1];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj[i])) AND (NOT ST_IsEmpty(new_object_1.out_obj[i+1])) AND
+			(NOT ST_IsEmpty(new_object_2.out_obj[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i+1]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING new_object_1.out_obj[i], new_object_2.out_obj[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING new_object_1.out_obj[i+1], new_object_2.out_obj[i+1];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1224,18 +1247,21 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING new_object_1.out_obj_end[i], new_object_2.out_obj[i];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_1.out_obj_end[i])) AND
+			(NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING new_object_1.out_obj_end[i], new_object_2.out_obj[i];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -1271,18 +1297,21 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_start
-		USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
-		EXECUTE 'SELECT '
-		|| command
-		|| '($1, $2)'
-		INTO command_result_end
-		USING new_object_2.out_obj[i], new_object_1.out_obj_end[i];
-		values_start := array_append(values_start, command_result_start);
-		values_end := array_append(values_end, command_result_end);
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_1.out_obj_end[i])) AND
+			(NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING new_object_2.out_obj[i], new_object_1.out_obj_end[i];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
