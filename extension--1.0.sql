@@ -883,40 +883,410 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_num (
 	command text,
-	ARGS
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	temp_bool_values boolean[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1)'
+		INTO command_result_start
+		USING p_start[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1)'
+		INTO command_result_end
+		USING p_end[i];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	geom geometry,
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING p_start[i], geom;
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING p_end[i], geom;
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	geom geometry,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING geom, p_start[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING geom, p_end[i];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	p1_start geometry(POINT)[],
+	p1_end geometry(POINT)[],
+	p1_periods tsrange[],
+	p2_start geometry(POINT)[],
+	p2_end geometry(POINT)[],
+	p2_periods tsrange[],
 	OUT values_start real[],
 	OUT values_end real[],
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
 	new_periods tsrange[];
-	command_result_start real;
-	command_result_end real;
+	new_object_1 record;
+	new_object_2 record;
+	command_result boolean;
 	merge_result record;
 BEGIN
 	--Preprocessing
-	new_periods := partitioning(periods1, periods2);
-	new_object_1 := (atperiods()).out_obj;
-	new_object_2 := (atperiods()).out_obj;
+	new_periods := partitioning(p1_periods, p2_periods);
+	new_object_1 := atperiods(p1_start, p1_end, p1_periods, new_periods);
+	new_object_2 := atperiods(p2_start, p2_end, p2_periods, new_periods);
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
 		EXECUTE 'SELECT '
 		|| command
-		|| ''
+		|| '($1, $2)'
 		INTO command_result_start
-		USING
+		USING new_object_1.out_obj_start[i], new_object_2.out_obj_start[i];
 		EXECUTE 'SELECT '
 		|| command
-		|| ''
+		|| '($1, $2)'
 		INTO command_result_end
-		USING
-		values_start := array_append(bool_values, command_result_start);
-		values_end := array_append(bool_values, command_result_end);
+		USING new_object_1.out_obj_end[i], new_object_2.out_obj_end[i];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, new_periods);
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1)'
+		INTO command_result_start
+		USING r[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1)'
+		INTO command_result_end
+		USING r[i+1];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	geom geometry,
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING r[i], geom;
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING r[i+1], geom;
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	geom geometry,
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING geom, r[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING geom, r[i+1];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	r1 geometry(POLYGON)[],
+	r1_periods tsrange[],
+	r2 geometry(POLYGON)[],
+	r2_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	new_object_1 record;
+	new_object_2 record;
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(r1_periods, r2_periods);
+	new_object_1 := atperiods(r1, r1_periods, new_periods);
+	new_object_2 := atperiods(r2, r2_periods, new_periods);
+
+	--Main
+	FOR i IN 1..(array_length(new_periods, 1) - 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING new_object_1.out_obj[i], new_object_2.out_obj[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING new_object_1.out_obj[i+1], new_object_2.out_obj[i+1];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	new_object_1 record;
+	new_object_2 record;
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(p_periods, r_periods);
+	new_object_1 := atperiods(p_start, p_end, p_periods, new_periods);
+	new_object_2 := atperiods(region, r_periods, new_periods);
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING new_object_1.out_obj_end[i], new_object_2.out_obj[i];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	new_object_1 record;
+	new_object_2 record;
+	command_result boolean;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(p_periods, r_periods);
+	new_object_1 := atperiods(p_start, p_end, p_periods, new_periods);
+	new_object_2 := atperiods(region, r_periods, new_periods);
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_start
+		USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
+		EXECUTE 'SELECT '
+		|| command
+		|| '($1, $2)'
+		INTO command_result_end
+		USING new_object_2.out_obj[i], new_object_1.out_obj_end[i];
+		values_start := array_append(values_start, command_result_start);
+		values_end := array_append(values_end, command_result_end);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, p_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
