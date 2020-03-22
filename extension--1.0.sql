@@ -391,15 +391,15 @@ BEGIN
 	current_start := lower(in_periods[1]);
 	FOR i IN 1..array_length(in_obj, 1) LOOP
 		IF (in_obj[i] != current_val) THEN
+			current_end := upper(in_periods[i-1]);
 			out_obj := array_append(out_obj, current_val);
 			out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 			current_val := in_obj[i];
 			current_start := lower(in_periods[i]);
 		END IF;
-		current_end := upper(in_periods[i]);
 	END LOOP;
 	out_obj := array_append(out_obj, current_val);
-	out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
+	out_periods := array_append(out_periods, tsrange(current_start, upper(in_periods[array_upper(in_periods, 1)]), '[)'));
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -420,8 +420,9 @@ BEGIN
 	current_val_start := in_obj_start[1];
 	current_val_end := in_obj_end[1];
 	current_start := lower(in_periods[1]);
-	FOR i IN 1..array_length(in_obj, 1) LOOP
-		IF ((in_obj_start[i] != current_val_start) OR (in_obj_end != current_val_end)) THEN
+	FOR i IN 1..array_length(in_obj_start, 1) LOOP
+		IF ((in_obj_start[i] != current_val_start) OR (in_obj_end[i] != current_val_end)) THEN
+			current_end := upper(in_periods[i-1]);
 			out_obj_start := array_append(out_obj_start, current_val_start);
 			out_obj_end := array_append(out_obj_end, current_val_end);
 			out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
@@ -429,11 +430,10 @@ BEGIN
 			current_val_end := in_obj_end[i];
 			current_start := lower(in_periods[i]);
 		END IF;
-		current_end := upper(in_periods[i]);
 	END LOOP;
 	out_obj_start := array_append(out_obj_start, current_val_start);
 	out_obj_end := array_append(out_obj_end, current_val_end);
-	out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
+	out_periods := array_append(out_periods, tsrange(current_start, upper(in_periods[array_upper(in_periods, 1)]), '[)'));
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -790,7 +790,7 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
-	r1 real[],
+	r1 real,
 	r2_vals_start real[],
 	r2_vals_end real[],
 	r2_periods tsrange[],
@@ -823,7 +823,7 @@ CREATE OR REPLACE FUNCTION lifted_opt (
 	r1_vals_start real[],
 	r1_vals_end real[],
 	r1_periods tsrange[],
-	r2 real[],
+	r2 real,
 	OUT bool_values boolean[],
 	OUT periods tsrange[]
 ) AS $$
@@ -2604,15 +2604,15 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	WHILE (o AND (rep_i < array_length(rep, 1))) LOOP
-		IF (rep_component[i] != 'o') THEN
-			IF (rep_component[i+1] != 'o') THEN
-				IF (rep[i]::timestamp >= rep[i+1]::timestamp) THEN
+	WHILE (o AND (rep_i < array_length(rep, 1))) LOOP 
+		IF (rep_component[rep_i] != 'o') THEN
+			IF (rep_component[rep_i+1] != 'o') THEN
+				IF (rep[rep_i]::timestamp >= rep[rep_i+1]::timestamp) THEN
 					o := FALSE;
 				END IF;
 			ELSE
-				IF (((i + 2) <= array_length(rep, 1)) AND (rep_component[i+2] != 'o')) THEN
-					o := checkoperation(rep[i]::timestamp, rep[i+2]::timestamp, rep[i+1]);
+				IF (((rep_i + 2) <= array_length(rep, 1)) AND (rep_component[rep_i+2] != 'o')) THEN
+					o := checkoperation(rep[rep_i]::timestamp, rep[rep_i+2]::timestamp, rep[rep_i+1]);
 				END IF;
 			END IF;
 		END IF;
