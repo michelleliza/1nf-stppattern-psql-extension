@@ -117,7 +117,6 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	END IF;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -127,7 +126,7 @@ CREATE OR REPLACE FUNCTION atinstant (
 	inst timestamp without time zone,
 	OUT out_v text,
 	OUT out_ts timestamp without time zone
-) 
+) AS $$
 DECLARE
 	i integer := 1;
 BEGIN
@@ -138,7 +137,6 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	END IF;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -159,7 +157,6 @@ BEGIN
 		END IF;
 		i := i + 1;
 	END LOOP;
-	END IF;
 END;
 $$ LANGUAGE 'plpgsql' STRICT;
 
@@ -436,7 +433,7 @@ BEGIN
 	END LOOP;
 	out_obj_start := array_append(out_obj_start, current_val_start);
 	out_obj_end := array_append(out_obj_end, current_val_end);
-	out_periods := out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
+	out_periods := array_append(out_periods, tsrange(current_start, current_end, '[)'));
 END;
 $$ LANGUAGE plpgsql STRICT;
 
@@ -533,6 +530,7 @@ BEGIN
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_pred (
 	command text,
@@ -662,10 +660,11 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, p_periods);
+	merge_result := merging(bool_values, r_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_pred (
 	command text,
@@ -689,7 +688,7 @@ BEGIN
 	new_object_2 := atperiods(r1, r1_periods, new_periods);
 
 	--Main
-	FOR i IN 1..array_length(r_periods, 1) LOOP
+	FOR i IN 1..array_length(new_periods, 1) LOOP
 		IF ((NOT ST_IsEmpty(new_object_1.out_obj[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
 			EXECUTE 'SELECT '
 			|| command
@@ -701,10 +700,11 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, p_periods);
+	merge_result := merging(bool_values, new_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
+$$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_pred (
 	command text,
@@ -778,6 +778,7 @@ BEGIN
 			INTO command_result
 			USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
 			bool_values := array_append(bool_values, command_result);
+		END IF;
 	END LOOP;
 
 	--Postprocessing
@@ -841,7 +842,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, new_periods);
+	merge_result := merging(bool_values, r1_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -897,7 +898,8 @@ CREATE OR REPLACE FUNCTION lifted_num (
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Main
@@ -937,7 +939,8 @@ CREATE OR REPLACE FUNCTION lifted_num (
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Main
@@ -977,7 +980,8 @@ CREATE OR REPLACE FUNCTION lifted_num (
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Main
@@ -1022,7 +1026,8 @@ DECLARE
 	new_periods tsrange[];
 	new_object_1 record;
 	new_object_2 record;
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1050,7 +1055,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, new_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1066,7 +1071,8 @@ CREATE OR REPLACE FUNCTION lifted_num (
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Main
@@ -1088,7 +1094,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, r_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1105,7 +1111,8 @@ CREATE OR REPLACE FUNCTION lifted_num (
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Main
@@ -1127,7 +1134,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, r_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1144,7 +1151,8 @@ CREATE OR REPLACE FUNCTION lifted_num (
 	OUT periods tsrange[]
 ) AS $$
 DECLARE
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Main
@@ -1166,7 +1174,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, r_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1187,7 +1195,8 @@ DECLARE
 	new_periods tsrange[];
 	new_object_1 record;
 	new_object_2 record;
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1215,7 +1224,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, new_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1237,7 +1246,8 @@ DECLARE
 	new_periods tsrange[];
 	new_object_1 record;
 	new_object_2 record;
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1265,7 +1275,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, new_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1287,7 +1297,8 @@ DECLARE
 	new_periods tsrange[];
 	new_object_1 record;
 	new_object_2 record;
-	command_result boolean;
+	command_result_start real;
+	command_result_end real;
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1315,7 +1326,7 @@ BEGIN
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, new_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
