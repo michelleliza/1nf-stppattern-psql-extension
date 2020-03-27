@@ -2553,7 +2553,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE FUNCTION checkconstraint (
+CREATE OR REPLACE FUNCTION stconstraint (
 	interval_1 tsrange,
 	interval_2 tsrange,
 	ir varchar,
@@ -2647,7 +2647,7 @@ BEGIN
 		WHILE ((NOT o) AND (i_1 <= array_length(true_intervals_1, 1))) LOOP
 			i_2 := 1;
 			WHILE ((NOT o) AND (i_2 <= array_length(true_intervals_2, 1))) LOOP
-				o := checkconstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
+				o := stconstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
 				i_2 := i_2 + 1;
 			END LOOP;
 			i_1 := i_1 + 1;
