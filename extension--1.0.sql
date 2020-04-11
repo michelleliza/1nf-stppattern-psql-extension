@@ -1,15 +1,6 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION stpqueries" to load this file. \quit
 
-CREATE TYPE ubool AS (
-	i tsrange,
-	val boolean
-);
-
-CREATE TYPE mbool AS (
-	units ubool[]
-);
-
 CREATE OR REPLACE FUNCTION partitioning (
 	intervals_1 tsrange[],
 	intervals_2 tsrange[],
@@ -771,7 +762,7 @@ BEGIN
 
 	--Main
 	FOR i IN 1..array_length(new_periods, 1) LOOP
-		IF ((NOT ST_IsEmpty(new_object_1.out_obj[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
+		IF ((NOT ST_IsEmpty(new_object_1.out_obj_start[i])) AND (NOT ST_IsEmpty(new_object_2.out_obj[i]))) THEN
 			EXECUTE 'SELECT '
 			|| command
 			|| '($1, $2)'
@@ -820,6 +811,34 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
+	r1 real,
+	r2 record,
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r2.periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1, r2.values_start[i];
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, r2.periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
 	r1_vals_start real[],
 	r1_vals_end real[],
 	r1_periods tsrange[],
@@ -850,12 +869,76 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
+	r1 record,
+	r2 real,
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r1.periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1.values_start[i], r2;
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, r1.periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
 	r1_vals_start real[],
 	r1_vals_end real[],
 	r1_periods tsrange[],
 	r2_vals_start real[],
 	r2_vals_end real[],
 	r2_periods tsrange[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	new_periods tsrange[];
+	new_object_1 record;
+	new_object_2 record;
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Preprocessing
+	new_periods := partitioning(r1_periods, r2_periods);
+	new_object_1 := atperiods(r1_vals_start, r1_vals_end, r1_periods, new_periods);
+	new_object_2 := atperiods(r2_vals_start, r2_vals_end, r2_periods, new_periods);
+
+	--Main
+	FOR i IN 1..array_length(new_periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1_vals_start[i], r2_vals_start[i];
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, new_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
+	r1 record,
+	r2 record,
 	OUT bool_values boolean[],
 	OUT periods tsrange[]
 ) AS $$
@@ -1379,35 +1462,6 @@ BEGIN
 	END LOOP;
 END;
 $$ LANGUAGE plpgsql STRICT;
-
--- CREATE OR REPLACE FUNCTION form_constraint (
---   idx_1 integer,
---   idx_2 integer,
---   ir varchar[],
---   OUT o varchar[]
--- ) AS $$
--- BEGIN
---   o[1] := idx_1::varchar;
---   o[2] := idx_2::varchar;
---   o[3] := ir::varchar;
--- END;
--- $$ LANGUAGE plpgsql STRICT;
-
--- CREATE OR REPLACE FUNCTION filtering (
--- 	lifted_pred mbool,
--- 	OUT o tsrange[]
--- ) AS $$
--- DECLARE
--- 	i_out integer := 1;
--- BEGIN
--- 	FOR i_in IN 1..array_length(lifted_pred, 1) LOOP
--- 		IF lifted_pred.units[i_in].val THEN
--- 			o[i_out] := lifted_pred.units[i_in].i;
--- 			i_out := i_out + 1;
--- 		END IF;
--- 	END LOOP;
--- END;
--- $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION filtering (
 	pred_values boolean[],
@@ -2607,9 +2661,7 @@ BEGIN
 	WHILE (o AND (rep_i < array_length(rep, 1))) LOOP 
 		IF (rep_component[rep_i] != 'o') THEN
 			IF (rep_component[rep_i+1] != 'o') THEN
-				IF (rep[rep_i]::timestamp >= rep[rep_i+1]::timestamp) THEN
-					o := FALSE;
-				END IF;
+				o := (rep[rep_i]::timestamp < rep[rep_i+1]::timestamp);
 			ELSE
 				IF (((rep_i + 2) <= array_length(rep, 1)) AND (rep_component[rep_i+2] != 'o')) THEN
 					o := checkoperation(rep[rep_i]::timestamp, rep[rep_i+2]::timestamp, rep[rep_i+1]);
@@ -2622,10 +2674,8 @@ END;
 $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION pattern (
-	pred_1_vals boolean[],
-	pred_1_intervals tsrange[],
-	pred_2_vals boolean[],
-	pred_2_intervals tsrange[],
+	pred1 record,
+	pred2 record,
 	ir varchar[],
 	OUT o boolean
 ) AS $$
@@ -2637,8 +2687,8 @@ DECLARE
 	i_2 integer;
 BEGIN
 	--Preprocessing
-	true_intervals_1 := filtering(pred_1_vals, pred_1_intervals);
-  	true_intervals_2 := filtering(pred_2_vals, pred_2_intervals);
+	true_intervals_1 := filtering(pred1.bool_values, pred1.periods);
+  	true_intervals_2 := filtering(pred2.bool_values, pred2.periods);
 
 	--Main
 	o := FALSE;
