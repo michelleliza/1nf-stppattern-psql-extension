@@ -193,6 +193,6 @@ WHERE pattern(
 		lifted_pred('ST_Intersects', trip, geometry(POINT(116.35, 39.30))),
 		lifted_opt('>=', speed(trip), 2.0)
 	], ARRAY [
-		stconstraint(1, 2, vec('a(10s)a(.)b(1h25m)b', 'a(1y2M)ba(.)b', 'b(2d)aa(5s)b', 'b(5M10d)ab(238m)a'))
+		stconstraint(1, 2, vec('aa.bb', 'aba.b', 'b.aab', 'b.ab.a'))
 	]			  
 );
