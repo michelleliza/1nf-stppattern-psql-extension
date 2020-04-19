@@ -181,7 +181,7 @@ FROM (SELECT
 ) taxi
 WHERE pattern(
 	lifted_pred('ST_Intersects', p_s, p_e, i_t, geometry(POINT(116.35, 39.30))),
-	lifted_opt('>=', speed(p_s, p_e, i_t), 10.0),
+	lifted_opt('>=', lifted_num('ST_Distance', p_s, p_e, i_t, geometry(POINT(150.54, 37.40))), 2.0),
 	vec('a(10s)a(.)b(1h25m)b', 'a(1y2M)ba(.)b', 'b(2d)aa(5s)b', 'b(5M10d)ab(238m)a')
 );
 
@@ -191,7 +191,7 @@ FROM taxi_n1nf
 WHERE pattern(
 	ARRAY[
 		lifted_pred('ST_Intersects', trip, geometry(POINT(116.35, 39.30))),
-		lifted_opt('>=', speed(trip), 2.0)
+		lifted_opt('>=', lifted_num('ST_Distance', trip, geometry(POINT(150.54, 37.40))), 2.0)
 	], ARRAY [
 		stconstraint(1, 2, vec('aa.bb', 'aba.b', 'b.aab', 'b.ab.a'))
 	]			  
