@@ -159,9 +159,9 @@ FROM (SELECT
 ) trains, (SELECT
 		array_agg(area ORDER BY time_period) ar,
 		array_agg(time_period ORDER BY time_period) i_s
-	FROM snow WHERE snow_id = 5 GROUP BY snow_id
+	FROM snow WHERE snow_id = 1 GROUP BY snow_id
 ) snow, trainroutes
-WHERE trainroutes.id = 1 AND pattern(
+WHERE trainroutes.id = 5 AND pattern(
 	lifted_pred('ST_Within', p_s, p_e, i_t, ar, i_s),
 	lifted_pred('ST_Within', p_s, p_e, i_t, geodata),
 	vec('abab', 'abba', 'baab', 'baba', 'a(.)bab', 'ab(.)ab', 'aba(.)b', 'a(.)bba', 'ab(.)ba', 'abb(.)a',
