@@ -438,6 +438,7 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -449,11 +450,12 @@ BEGIN
 			INTO command_result
 			USING p_start[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, p_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -470,6 +472,7 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -481,11 +484,12 @@ BEGIN
 			INTO command_result
 			USING p_start[i], geom;
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, p_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -502,6 +506,7 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -513,11 +518,12 @@ BEGIN
 			INTO command_result
 			USING geom, p_start[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, p_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -539,6 +545,7 @@ DECLARE
 	new_object_1 record;
 	new_object_2 record;
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -555,11 +562,12 @@ BEGIN
 			INTO command_result
 			USING new_object_1.out_obj_start[i], new_object_2.out_obj_start[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, new_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -574,6 +582,7 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -585,11 +594,12 @@ BEGIN
 			INTO command_result
 			USING region[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, r_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -605,6 +615,7 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -616,11 +627,12 @@ BEGIN
 			INTO command_result
 			USING region[i], geom;
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, r_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -636,6 +648,7 @@ CREATE OR REPLACE FUNCTION lifted_pred (
 ) AS $$
 DECLARE
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -647,11 +660,12 @@ BEGIN
 			INTO command_result
 			USING geom, region[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, r_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -671,6 +685,7 @@ DECLARE
 	new_object_1 record;
 	new_object_2 record;
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -687,11 +702,12 @@ BEGIN
 			INTO command_result
 			USING new_object_1.out_obj[i], new_object_2.out_obj[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, new_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -712,6 +728,7 @@ DECLARE
 	new_object_1 record;
 	new_object_2 record;
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -728,11 +745,12 @@ BEGIN
 			INTO command_result
 			USING new_object_1.out_obj_start[i], new_object_2.out_obj[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, new_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -753,6 +771,7 @@ DECLARE
 	new_object_1 record;
 	new_object_2 record;
 	command_result boolean;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -769,11 +788,12 @@ BEGIN
 			INTO command_result
 			USING new_object_2.out_obj[i], new_object_1.out_obj_start[i];
 			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(bool_values, new_periods);
+	merge_result := merging(bool_values, not_empty_periods);
 	bool_values := merge_result.out_obj;
 	periods := merge_result.out_periods;
 END;
@@ -983,6 +1003,7 @@ CREATE OR REPLACE FUNCTION lifted_num (
 DECLARE
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -1000,11 +1021,12 @@ BEGIN
 			USING p_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1024,6 +1046,7 @@ CREATE OR REPLACE FUNCTION lifted_num (
 DECLARE
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -1041,11 +1064,12 @@ BEGIN
 			USING p_end[i], geom;
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1065,6 +1089,7 @@ CREATE OR REPLACE FUNCTION lifted_num (
 DECLARE
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -1082,11 +1107,12 @@ BEGIN
 			USING geom, p_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, p_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1111,6 +1137,7 @@ DECLARE
 	new_object_2 record;
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1134,11 +1161,12 @@ BEGIN
 			USING new_object_1.out_obj_end[i], new_object_2.out_obj_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, new_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1156,6 +1184,7 @@ CREATE OR REPLACE FUNCTION lifted_num (
 DECLARE
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -1173,11 +1202,12 @@ BEGIN
 			USING region[i+1];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, r_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1196,6 +1226,7 @@ CREATE OR REPLACE FUNCTION lifted_num (
 DECLARE
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -1213,11 +1244,12 @@ BEGIN
 			USING region[i+1], geom;
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, r_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1236,6 +1268,7 @@ CREATE OR REPLACE FUNCTION lifted_num (
 DECLARE
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Main
@@ -1253,11 +1286,12 @@ BEGIN
 			USING geom, region[i+1];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, r_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1280,6 +1314,7 @@ DECLARE
 	new_object_2 record;
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1303,11 +1338,12 @@ BEGIN
 			USING new_object_1.out_obj[i+1], new_object_2.out_obj[i+1];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, new_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1331,6 +1367,7 @@ DECLARE
 	new_object_2 record;
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
@@ -1354,11 +1391,12 @@ BEGIN
 			USING new_object_1.out_obj_end[i], new_object_2.out_obj[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, new_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
@@ -1382,10 +1420,11 @@ DECLARE
 	new_object_2 record;
 	command_result_start real;
 	command_result_end real;
+	not_empty_periods tsrange[];
 	merge_result record;
 BEGIN
 	--Preprocessing
-	new_periods := partitioning(p_periods, r_periods);
+	new_periods := partitioning(p_periods, not_empty_periods);
 	new_object_1 := atperiods(p_start, p_end, p_periods, new_periods);
 	new_object_2 := atperiods(region, r_periods, new_periods);
 
@@ -1405,11 +1444,12 @@ BEGIN
 			USING new_object_2.out_obj[i], new_object_1.out_obj_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
 		END IF;
 	END LOOP;
 
 	--Postprocessing
-	merge_result := merging(values_start, values_end, new_periods);
+	merge_result := merging(values_start, values_end, not_empty_periods);
 	values_start := merge_result.out_obj_start;
 	values_end := merge_result.out_obj_end;
 	periods := merge_result.out_periods;
