@@ -2738,11 +2738,6 @@ BEGIN
 			i_2 := 1;
 			WHILE ((NOT o) AND (i_2 <= array_length(true_intervals_2, 1))) LOOP
 				o := stconstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
-				IF o THEN
-					RAISE NOTICE '%', true_intervals_1[i_1];
-					RAISE NOTICE '%', true_intervals_2[i_2];
-					RAISE NOTICE '%', ir[ir_i];
-				END IF;
 				i_2 := i_2 + 1;
 			END LOOP;
 			i_1 := i_1 + 1;
