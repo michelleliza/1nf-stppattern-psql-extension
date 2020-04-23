@@ -450,7 +450,7 @@ BEGIN
 			INTO command_result
 			USING p_start[i];
 			bool_values := array_append(bool_values, command_result);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -484,7 +484,7 @@ BEGIN
 			INTO command_result
 			USING p_start[i], geom;
 			bool_values := array_append(bool_values, command_result);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -518,7 +518,7 @@ BEGIN
 			INTO command_result
 			USING geom, p_start[i];
 			bool_values := array_append(bool_values, command_result);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -594,7 +594,7 @@ BEGIN
 			INTO command_result
 			USING region[i];
 			bool_values := array_append(bool_values, command_result);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -627,7 +627,7 @@ BEGIN
 			INTO command_result
 			USING region[i], geom;
 			bool_values := array_append(bool_values, command_result);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -660,7 +660,7 @@ BEGIN
 			INTO command_result
 			USING geom, region[i];
 			bool_values := array_append(bool_values, command_result);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -1021,7 +1021,7 @@ BEGIN
 			USING p_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -1064,7 +1064,7 @@ BEGIN
 			USING p_end[i], geom;
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -1107,7 +1107,7 @@ BEGIN
 			USING geom, p_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -1202,7 +1202,7 @@ BEGIN
 			USING region[i+1];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -1244,7 +1244,7 @@ BEGIN
 			USING region[i+1], geom;
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -1286,7 +1286,7 @@ BEGIN
 			USING geom, region[i+1];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
-			not_empty_periods := array_append(not_empty_periods, new_periods[i]);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
 	END LOOP;
 
@@ -2738,6 +2738,11 @@ BEGIN
 			i_2 := 1;
 			WHILE ((NOT o) AND (i_2 <= array_length(true_intervals_2, 1))) LOOP
 				o := stconstraint(true_intervals_1[i_1], true_intervals_2[i_2], ir[ir_i]);
+				IF o THEN
+					RAISE NOTICE '%', true_intervals_1[i_1];
+					RAISE NOTICE '%', true_intervals_2[i_2];
+					RAISE NOTICE '%', ir[ir_i];
+				END IF;
 				i_2 := i_2 + 1;
 			END LOOP;
 			i_1 := i_1 + 1;
