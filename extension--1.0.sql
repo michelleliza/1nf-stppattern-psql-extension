@@ -1,6 +1,306 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION stpqueries" to load this file. \quit
 
+CREATE OR REPLACE FUNCTION form_mint (
+	tablename text,
+	column_names text[]	
+) RETURNS TABLE (
+	temporal_pk integer,
+	i_v boolean[],
+	t_p tsrange[]
+)
+AS $$
+DECLARE
+	ids integer[];
+BEGIN
+	EXECUTE 'SELECT array_agg (DISTINCT '
+	|| column_names[3]
+	|| ') FROM '
+	|| tablename
+	INTO ids;
+	FOR i IN 1..array_length(ids, 1) LOOP
+		temporal_pk := ids[i];
+		EXECUTE 'SELECT array_agg('
+		|| column_names[1]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO i_v;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[2]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO t_p;
+		RETURN NEXT;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION form_mtext (
+	tablename text,
+	column_names text[]	
+) RETURNS TABLE (
+	temporal_pk integer,
+	t_v text[],
+	t_p tsrange[]
+)
+AS $$
+DECLARE
+	ids integer[];
+BEGIN
+	EXECUTE 'SELECT array_agg (DISTINCT '
+	|| column_names[3]
+	|| ') FROM '
+	|| tablename
+	INTO ids;
+	FOR i IN 1..array_length(ids, 1) LOOP
+		temporal_pk := ids[i];
+		EXECUTE 'SELECT array_agg('
+		|| column_names[1]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO t_v;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[2]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO t_p;
+		RETURN NEXT;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION form_mbool (
+	tablename text,
+	column_names text[]	
+) RETURNS TABLE (
+	temporal_pk integer,
+	b_v boolean[],
+	t_p tsrange[]
+)
+AS $$
+DECLARE
+	ids integer[];
+BEGIN
+	EXECUTE 'SELECT array_agg (DISTINCT '
+	|| column_names[3]
+	|| ') FROM '
+	|| tablename
+	INTO ids;
+	FOR i IN 1..array_length(ids, 1) LOOP
+		temporal_pk := ids[i];
+		EXECUTE 'SELECT array_agg('
+		|| column_names[1]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO b_v;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[2]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO t_p;
+		RETURN NEXT;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION form_mreal (
+	tablename text,
+	column_names text[]	
+) RETURNS TABLE (
+	temporal_pk integer,
+	r_s real[],
+	r_e real[],
+	t_p tsrange[]
+)
+AS $$
+DECLARE
+	ids integer[];
+BEGIN
+	EXECUTE 'SELECT array_agg (DISTINCT '
+	|| column_names[4]
+	|| ') FROM '
+	|| tablename
+	INTO ids;
+	FOR i IN 1..array_length(ids, 1) LOOP
+		temporal_pk := ids[i];
+		EXECUTE 'SELECT array_agg('
+		|| column_names[1]
+		|| ' ORDER BY '
+		|| column_names[3]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[4]
+		|| ' = '
+		|| ids[i]
+		INTO r_s;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[2]
+		|| ' ORDER BY '
+		|| column_names[3]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[4]
+		|| ' = '
+		|| ids[i]
+		INTO r_e;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[3]
+		|| ' ORDER BY '
+		|| column_names[3]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[4]
+		|| ' = '
+		|| ids[i]
+		INTO t_p;
+		RETURN NEXT;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION form_mpoint (
+	tablename text,
+	column_names text[]	
+) RETURNS TABLE (
+	temporal_pk integer,
+	p_s geometry(POINT)[],
+	p_e geometry(POINT)[],
+	t_p tsrange[]
+)
+AS $$
+DECLARE
+	ids integer[];
+BEGIN
+	EXECUTE 'SELECT array_agg (DISTINCT '
+	|| column_names[4]
+	|| ') FROM '
+	|| tablename
+	INTO ids;
+	FOR i IN 1..array_length(ids, 1) LOOP
+		temporal_pk := ids[i];
+		EXECUTE 'SELECT array_agg('
+		|| column_names[1]
+		|| ' ORDER BY '
+		|| column_names[3]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[4]
+		|| ' = '
+		|| ids[i]
+		INTO p_s;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[2]
+		|| ' ORDER BY '
+		|| column_names[3]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[4]
+		|| ' = '
+		|| ids[i]
+		INTO p_e;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[3]
+		|| ' ORDER BY '
+		|| column_names[3]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[4]
+		|| ' = '
+		|| ids[i]
+		INTO t_p;
+		RETURN NEXT;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION form_mregion (
+	tablename text,
+	column_names text[]	
+) RETURNS TABLE (
+	temporal_pk integer,
+	r_v geometry(POINT)[],
+	t_p tsrange[]
+)
+AS $$
+DECLARE
+	ids integer[];
+BEGIN
+	EXECUTE 'SELECT array_agg (DISTINCT '
+	|| column_names[3]
+	|| ') FROM '
+	|| tablename
+	INTO ids;
+	FOR i IN 1..array_length(ids, 1) LOOP
+		temporal_pk := ids[i];
+		EXECUTE 'SELECT array_agg('
+		|| column_names[1]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO r_v;
+		EXECUTE 'SELECT array_agg('
+		|| column_names[2]
+		|| ' ORDER BY '
+		|| column_names[2]
+		|| ') FROM '
+		|| tablename
+		|| ' WHERE '
+		|| column_names[3]
+		|| ' = '
+		|| ids[i]
+		INTO t_p;
+		RETURN NEXT;
+	END LOOP;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
 CREATE OR REPLACE FUNCTION partitioning (
 	intervals_1 tsrange[],
 	intervals_2 tsrange[],
