@@ -39,7 +39,7 @@ FROM
 	trainroutes t1, trainroutes t2
 WHERE temporal_pk = 4 AND t1.id = 3 AND t2.id = 4;
 
--- Apakah kereta 4 melewati stasiun 10 tepat 24 menit sebelum melewati stasiun 28?
+-- Apakah kereta 4 meninggalkan stasiun 10 tepat 24 menit sebelum memasuki stasiun 28?
 -- pattern: (boolean[], tsrange[]) x (boolean[], tsrange[]) x varchar[] -> boolean
 -- ["2003-11-20 06:32:00","2003-11-20 06:34:00") 10
 -- ["2003-11-20 06:58:00","2003-11-20 07:00:00") 28
