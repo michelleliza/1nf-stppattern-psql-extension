@@ -27,6 +27,19 @@ FROM
 	form_mregion('snow', array['area', 'time_period', 'snow_id']) snow, stations
 WHERE temporal_pk = 1 AND stations.id = 15;
 
+-- Berapa jarak antara badai salju 1 dengan titik awalnya?
+-- lifted_num: text x geometry[] x (region[], tsrange[]) -> (real[], real[], tsrange[]) 
+SELECT
+	unnest(lifted_num_start(lifted_num('ST_Distance', s_p, area, t_p))),
+	unnest(lifted_num_end(lifted_num('ST_Distance', s_p, area, t_p))),
+	unnest(lifted_num_end(lifted_num('ST_Distance', s_p, area, t_p)))								 
+FROM (SELECT
+	array_agg(area ORDER BY time_period) area,
+	array_agg(time_period ORDER BY time_period) t_p,
+	array_agg(DISTINCT starting_point) s_p
+	FROM snow GROUP BY snow_id
+) snow;
+
 -- Apakah kereta 4 melewati rute 3 sebelum melewati rute 4?
 -- pattern: (boolean[], tsrange[]) x (boolean[], tsrange[]) x varchar[] -> boolean
 SELECT pattern(

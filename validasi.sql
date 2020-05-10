@@ -37,13 +37,37 @@ SELECT
 		(atinstant(ar, i_s, '2003-11-20 07:10:00'::timestamp)).out_v, geodata
 	),
 	ST_Distance(
-		(atinstant(ar, i_s, '2003-11-20 07:50:00'::timestamp)).out_v, geodata
+		(atinstant(ar, i_s, '2003-11-20 07:30:00'::timestamp)).out_v, geodata
 	)
 FROM
 	form_mregion('snow', array['area', 'time_period', 'snow_id']) snow, stations
 WHERE temporal_pk = 1 AND stations.id = 15;
 
 -- TC 4
+SELECT
+	ST_Distance(
+		(atinstant(area, t_p, '2003-11-20 06:00:00'::timestamp)).out_v, s_p[1]
+	),
+	ST_Distance(
+		(atinstant(area, t_p, '2003-11-20 06:15:00'::timestamp)).out_v, s_p[1]
+	),
+	ST_Distance(
+		(atinstant(area, t_p, '2003-11-20 06:55:00'::timestamp)).out_v, s_p[1]
+	),
+	ST_Distance(
+		(atinstant(area, t_p, '2003-11-20 07:10:00'::timestamp)).out_v, s_p[1]
+	),
+	ST_Distance(
+		(atinstant(area, t_p, '2003-11-20 07:30:00'::timestamp)).out_v, s_p[1]
+	)
+FROM (SELECT
+	array_agg(area ORDER BY time_period) area,
+	array_agg(time_period ORDER BY time_period) t_p,
+	array_agg(DISTINCT starting_point) s_p
+	FROM snow GROUP BY snow_id
+) snow;
+
+-- TC 5
 SELECT
 	unnest(lifted_bool_values(lifted_pred('ST_Within', p_s, p_e, t_p, t1.geodata))),
 	unnest(lifted_periods(lifted_pred('ST_Within', p_s, p_e, t_p, t1.geodata))),
@@ -54,7 +78,7 @@ FROM
 	trainroutes t1, trainroutes t2
 WHERE temporal_pk = 4 AND t1.id = 3 AND t2.id = 4;
 
--- TC 5
+-- TC 6
 SELECT
 	unnest(lifted_bool_values(lifted_pred('ST_Within', p_s, p_e, t_p, s1.geodata))),
 	unnest(lifted_periods(lifted_pred('ST_Within', p_s, p_e, t_p, s1.geodata))),
@@ -65,16 +89,17 @@ FROM
 	stations s1, stations s2
 WHERE temporal_pk = 4 AND s1.id = 10 AND s2.id = 28;
 
--- TC 6
+-- TC 7
 SELECT
-	unnest(lifted_bool_values(lifted_pred('ST_Within', p_s, p_e, t_p, geodata))),
-	unnest(lifted_periods(lifted_pred('ST_Within', p_s, p_e, t_p, geodata))),
-	unnest(lifted_bool_values(lifted_pred('ST_Intersects', p_s, p_e, t_p, ar, i_s))),
-	unnest(lifted_periods(lifted_pred('ST_Intersects', p_s, p_e, t_p, ar, i_s)))
+	unnest(lifted_bool_values(lifted_pred('ST_Within', p_s, p_e, trains.t_p, geodata))),
+	unnest(lifted_periods(lifted_pred('ST_Within', p_s, p_e, trains.t_p, geodata))),
+	unnest(lifted_bool_values(lifted_pred('ST_Intersects', p_s, p_e, trains.t_p, ar, snow.t_p))),
+	unnest(lifted_periods(lifted_pred('ST_Intersects', p_s, p_e, trains.t_p, ar, snow.t_p)))
 FROM
 	form_mregion('snow', array['area', 'time_period', 'snow_id']) snow,
-	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) trains,, trainroutes
+	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) trains,
+	trainroutes
 WHERE trainroutes.id = 5;
 
--- TC 7, 8, 9
+-- TC 8, 9, 10
 -- just execute it
