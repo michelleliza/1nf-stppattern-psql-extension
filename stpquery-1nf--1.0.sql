@@ -1127,6 +1127,40 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_pred (
 	command text,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	geom geometry[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		IF (NOT ST_IsEmpty(p_start[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING p_start[i], geom[1];
+			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, not_empty_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_pred (
+	command text,
 	geom geometry,
 	p_start geometry(POINT)[],
 	p_end geometry(POINT)[],
@@ -1147,6 +1181,40 @@ BEGIN
 			|| '($1, $2)'
 			INTO command_result
 			USING geom, p_start[i];
+			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, not_empty_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_pred (
+	command text,
+	geom geometry[],
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		IF (NOT ST_IsEmpty(p_start[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING geom[1], p_start[i];
 			bool_values := array_append(bool_values, command_result);
 			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
 		END IF;
@@ -1270,6 +1338,39 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_pred (
 	command text,
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	geom geometry[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r_periods, 1) LOOP
+		IF (NOT ST_IsEmpty(region[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING region[i], geom[1];
+			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, not_empty_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_pred (
+	command text,
 	geom geometry,
 	region geometry(POLYGON)[],
 	r_periods tsrange[],
@@ -1289,6 +1390,39 @@ BEGIN
 			|| '($1, $2)'
 			INTO command_result
 			USING geom, region[i];
+			bool_values := array_append(bool_values, command_result);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, not_empty_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_pred (
+	command text,
+	geom geometry[],
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result boolean;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r_periods, 1) LOOP
+		IF (NOT ST_IsEmpty(region[i])) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result
+			USING geom[1], region[i];
 			bool_values := array_append(bool_values, command_result);
 			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
 		END IF;
@@ -1461,6 +1595,36 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
+	r1 real[],
+	r2_vals_start real[],
+	r2_vals_end real[],
+	r2_periods tsrange[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r2_periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1[1], r2_vals_start[i];
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, r2_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
 	r1 real,
 	r2 record,
 	OUT bool_values boolean[],
@@ -1477,6 +1641,34 @@ BEGIN
 		|| '$2'
 		INTO opt_result
 		USING r1, r2.values_start[i];
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, r2.periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
+	r1 real[],
+	r2 record,
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r2.periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1[1], r2.values_start[i];
 		bool_values := array_append(bool_values, opt_result);
 	END LOOP;
 
@@ -1519,6 +1711,36 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_opt (
 	opt text,
+	r1_vals_start real[],
+	r1_vals_end real[],
+	r1_periods tsrange[],
+	r2 real[],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r1_periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1_vals_start[i], r2[1];
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, r1_periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
 	r1 record,
 	r2 real,
 	OUT bool_values boolean[],
@@ -1535,6 +1757,34 @@ BEGIN
 		|| '$2'
 		INTO opt_result
 		USING r1.values_start[i], r2;
+		bool_values := array_append(bool_values, opt_result);
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(bool_values, r1.periods);
+	bool_values := merge_result.out_obj;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_opt (
+	opt text,
+	r1 record,
+	r2 real[1],
+	OUT bool_values boolean[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	opt_result boolean;
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(r1.periods, 1) LOOP
+		EXECUTE 'SELECT $1'
+		|| opt
+		|| '$2'
+		INTO opt_result
+		USING r1.values_start[i], r2[1];
 		bool_values := array_append(bool_values, opt_result);
 	END LOOP;
 
@@ -1708,6 +1958,49 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_num (
 	command text,
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	geom geometry[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result_start real;
+	command_result_end real;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		IF ((NOT ST_IsEmpty(p_start[i])) AND (NOT ST_IsEmpty(p_end[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING p_start[i], geom[1];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING p_end[i], geom[1];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, not_empty_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
 	geom geometry,
 	p_start geometry(POINT)[],
 	p_end geometry(POINT)[],
@@ -1735,6 +2028,49 @@ BEGIN
 			|| '($1, $2)'
 			INTO command_result_end
 			USING geom, p_end[i];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, not_empty_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	geom geometry[],
+	p_start geometry(POINT)[],
+	p_end geometry(POINT)[],
+	p_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result_start real;
+	command_result_end real;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..array_length(p_periods, 1) LOOP
+		IF ((NOT ST_IsEmpty(p_start[i])) AND (NOT ST_IsEmpty(p_end[i]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING geom[1], p_start[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING geom[1], p_end[i];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
 			not_empty_periods := array_append(not_empty_periods, p_periods[i]);
@@ -1888,6 +2224,48 @@ $$ LANGUAGE plpgsql STRICT;
 
 CREATE OR REPLACE FUNCTION lifted_num (
 	command text,
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	geom geometry[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result_start real;
+	command_result_end real;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
+		IF ((NOT ST_IsEmpty(region[i])) AND (NOT ST_IsEmpty(region[i+1]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING region[i], geom[1];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING region[i+1], geom[1];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, not_empty_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
 	geom geometry,
 	region geometry(POLYGON)[],
 	r_periods tsrange[],
@@ -1914,6 +2292,48 @@ BEGIN
 			|| '($1, $2)'
 			INTO command_result_end
 			USING geom, region[i+1];
+			values_start := array_append(values_start, command_result_start);
+			values_end := array_append(values_end, command_result_end);
+			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
+		END IF;
+	END LOOP;
+
+	--Postprocessing
+	merge_result := merging(values_start, values_end, not_empty_periods);
+	values_start := merge_result.out_obj_start;
+	values_end := merge_result.out_obj_end;
+	periods := merge_result.out_periods;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION lifted_num (
+	command text,
+	geom geometry[],
+	region geometry(POLYGON)[],
+	r_periods tsrange[],
+	OUT values_start real[],
+	OUT values_end real[],
+	OUT periods tsrange[]
+) AS $$
+DECLARE
+	command_result_start real;
+	command_result_end real;
+	not_empty_periods tsrange[];
+	merge_result record;
+BEGIN
+	--Main
+	FOR i IN 1..(array_length(r_periods, 1) - 1) LOOP
+		IF ((NOT ST_IsEmpty(region[i])) AND (NOT ST_IsEmpty(region[i+1]))) THEN
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_start
+			USING geom[1], region[i];
+			EXECUTE 'SELECT '
+			|| command
+			|| '($1, $2)'
+			INTO command_result_end
+			USING geom[1], region[i+1];
 			values_start := array_append(values_start, command_result_start);
 			values_end := array_append(values_end, command_result_end);
 			not_empty_periods := array_append(not_empty_periods, r_periods[i]);
