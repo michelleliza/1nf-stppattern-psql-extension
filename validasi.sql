@@ -1,12 +1,24 @@
 -- TC 1
 SELECT
 	ST_Intersects(
+		(atinstant(t1.p_s, t1.p_e, t1.t_p, '2003-11-20 06:08:00'::timestamp)).out_v, 
+		(atinstant(t2.p_s, t2.p_e, t2.t_p, '2003-11-20 06:08:00'::timestamp)).out_v
+	),
+	ST_Intersects(
 		(atinstant(t1.p_s, t1.p_e, t1.t_p, '2003-11-20 06:24:59.998'::timestamp)).out_v, 
 		(atinstant(t2.p_s, t2.p_e, t2.t_p, '2003-11-20 06:24:59.998'::timestamp)).out_v
 	),
 	ST_Intersects(
+		(atinstant(t1.p_s, t1.p_e, t1.t_p, '2003-11-20 06:28:09.445'::timestamp)).out_v, 
+		(atinstant(t2.p_s, t2.p_e, t2.t_p, '2003-11-20 06:28:09.445'::timestamp)).out_v
+	),
+	ST_Intersects(
 		(atinstant(t1.p_s, t1.p_e, t1.t_p, '2003-11-20 06:30:59.996'::timestamp)).out_v, 
 		(atinstant(t2.p_s, t2.p_e, t2.t_p, '2003-11-20 06:30:59.996'::timestamp)).out_v
+	),
+	ST_Intersects(
+		(atinstant(t1.p_s, t1.p_e, t1.t_p, '2003-11-20 06:31:15.805'::timestamp)).out_v, 
+		(atinstant(t2.p_s, t2.p_e, t2.t_p, '2003-11-20 06:31:15.805'::timestamp)).out_v
 	)
 FROM
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) t1,
@@ -16,7 +28,13 @@ WHERE t1.temporal_pk = 1 AND t2.temporal_pk = 5;
 -- TC 2
 SELECT
 	ST_Distance(
+		(atinstant(p_s, p_e, t_p, '2003-11-20 06:10:00'::timestamp)).out_v, geodata
+	),
+	ST_Distance(
 		(atinstant(p_s, p_e, t_p, '2003-11-20 06:28:49.79'::timestamp)).out_v, geodata
+	),
+	ST_Distance(
+		(atinstant(p_s, p_e, t_p, '2003-11-20 06:37:26.068'::timestamp)).out_v, geodata
 	)
 FROM
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) trains, trainroutes
