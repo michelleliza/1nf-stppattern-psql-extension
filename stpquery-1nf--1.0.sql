@@ -15,7 +15,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -75,7 +75,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -130,7 +130,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -190,7 +190,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -245,7 +245,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -305,7 +305,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -361,7 +361,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 4..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -436,7 +436,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 4..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -502,7 +502,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 4..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -577,7 +577,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 4..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -642,7 +642,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN
@@ -702,7 +702,7 @@ DECLARE
 	_row record;
 	query text;
 BEGIN
-	query = 'SELECT array[';
+	query = 'SELECT DISTINCT array[';
 	FOR i IN 3..array_length(column_names, 1) LOOP
 		query = query || column_names[i] || '::text';
 		IF (i != array_length(column_names, 1)) THEN

@@ -64,26 +64,21 @@ WHERE temporal_pk = 1 AND stations.id = 15;
 -- TC 4
 SELECT
 	ST_Distance(
-		(atinstant(area, t_p, '2003-11-20 06:00:00'::timestamp)).out_v, s_p[1]
+		(atinstant(r_v, t_p, '2003-11-20 06:00:00'::timestamp)).out_v, temporal_pk[2]::geometry
 	),
 	ST_Distance(
-		(atinstant(area, t_p, '2003-11-20 06:15:00'::timestamp)).out_v, s_p[1]
+		(atinstant(r_v, t_p, '2003-11-20 06:15:00'::timestamp)).out_v, temporal_pk[2]::geometry
 	),
 	ST_Distance(
-		(atinstant(area, t_p, '2003-11-20 06:55:00'::timestamp)).out_v, s_p[1]
+		(atinstant(r_v, t_p, '2003-11-20 06:55:00'::timestamp)).out_v, temporal_pk[2]::geometry
 	),
 	ST_Distance(
-		(atinstant(area, t_p, '2003-11-20 07:10:00'::timestamp)).out_v, s_p[1]
+		(atinstant(r_v, t_p, '2003-11-20 07:10:00'::timestamp)).out_v, temporal_pk[2]::geometry
 	),
 	ST_Distance(
-		(atinstant(area, t_p, '2003-11-20 07:30:00'::timestamp)).out_v, s_p[1]
+		(atinstant(r_v, t_p, '2003-11-20 07:30:00'::timestamp)).out_v, temporal_pk[2]::geometry
 	)
-FROM (SELECT
-	array_agg(area ORDER BY time_period) area,
-	array_agg(time_period ORDER BY time_period) t_p,
-	array_agg(DISTINCT starting_point) s_p
-	FROM snow GROUP BY snow_id
-) snow;
+FROM form_mregion('snow', array['area', 'time_period', 'snow_id', 'ST_AsText(starting_point)']) snow;
 
 -- TC 5
 SELECT
