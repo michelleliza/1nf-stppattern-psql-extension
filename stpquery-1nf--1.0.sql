@@ -5,43 +5,56 @@ CREATE OR REPLACE FUNCTION form_mint (
 	tablename text,
 	column_names text[]	
 ) RETURNS TABLE (
-	temporal_pk integer,
-	i_v boolean[],
+	temporal_pk text[],
+	i_v integer[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO i_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO i_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -52,47 +65,52 @@ CREATE OR REPLACE FUNCTION form_mint (
 	column_names text[],
 	where_clause text
 ) RETURNS TABLE (
-	temporal_pk integer,
-	i_v boolean[],
+	temporal_pk text[],
+	i_v integer[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO i_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO i_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -102,43 +120,56 @@ CREATE OR REPLACE FUNCTION form_mtext (
 	tablename text,
 	column_names text[]	
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	t_v text[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO t_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -149,47 +180,52 @@ CREATE OR REPLACE FUNCTION form_mtext (
 	column_names text[],
 	where_clause text
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	t_v text[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO t_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -199,43 +235,56 @@ CREATE OR REPLACE FUNCTION form_mbool (
 	tablename text,
 	column_names text[]	
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	b_v boolean[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO b_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO b_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -246,47 +295,52 @@ CREATE OR REPLACE FUNCTION form_mbool (
 	column_names text[],
 	where_clause text
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	b_v boolean[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO b_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO b_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -296,55 +350,71 @@ CREATE OR REPLACE FUNCTION form_mreal (
 	tablename text,
 	column_names text[]	
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	r_s real[],
 	r_e real[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[4]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 4..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		INTO r_s;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO r_s;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		INTO r_e;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO r_e;
+		query = 'SELECT array_agg('
 		|| column_names[3]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -355,61 +425,63 @@ CREATE OR REPLACE FUNCTION form_mreal (
 	column_names text[],
 	where_clause text
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	r_s real[],
 	r_e real[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[4]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 4..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
+	FOR _row IN EXECUTE query LOOP
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO r_s;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO r_s;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO r_e;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO r_e;
+		query = 'SELECT array_agg('
 		|| column_names[3]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -419,55 +491,71 @@ CREATE OR REPLACE FUNCTION form_mpoint (
 	tablename text,
 	column_names text[]	
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	p_s geometry(POINT)[],
 	p_e geometry(POINT)[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[4]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 4..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		INTO p_s;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO p_s;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		INTO p_e;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO p_e;
+		query = 'SELECT array_agg('
 		|| column_names[3]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -478,61 +566,63 @@ CREATE OR REPLACE FUNCTION form_mpoint (
 	column_names text[],
 	where_clause text
 ) RETURNS TABLE (
-	temporal_pk integer,
+	temporal_pk text[],
 	p_s geometry(POINT)[],
 	p_e geometry(POINT)[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[4]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 4..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
+	FOR _row IN EXECUTE query LOOP
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO p_s;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO p_s;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO p_e;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO p_e;
+		query = 'SELECT array_agg('
 		|| column_names[3]
 		|| ' ORDER BY '
 		|| column_names[3]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[4]
-		|| ' = '
-		|| ids[i]
-		|| ' AND '
-		|| where_clause
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 4..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-3] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -542,43 +632,56 @@ CREATE OR REPLACE FUNCTION form_mregion (
 	tablename text,
 	column_names text[]	
 ) RETURNS TABLE (
-	temporal_pk integer,
-	r_v geometry(POINT)[],
+	temporal_pk text[],
+	r_v geometry(POLYGON)[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO r_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO r_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || '''';
+			IF (i != array_length(column_names, 1)) THEN
+				query = query || ' AND ';			 
+			END IF;
+		END LOOP;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
@@ -589,43 +692,52 @@ CREATE OR REPLACE FUNCTION form_mregion (
 	column_names text[],
 	where_clause text
 ) RETURNS TABLE (
-	temporal_pk integer,
-	r_v geometry(POINT)[],
+	temporal_pk text[],
+	r_v geometry(POLYGON)[],
 	t_p tsrange[]
 )
 AS $$
 DECLARE
-	ids integer[];
+	ids text[];
+	_row record;
+	query text;
 BEGIN
-	EXECUTE 'SELECT array_agg (DISTINCT '
-	|| column_names[3]
-	|| ') FROM '
-	|| tablename
-	INTO ids;
-	FOR i IN 1..array_length(ids, 1) LOOP
-		temporal_pk := ids[i];
-		EXECUTE 'SELECT array_agg('
+	query = 'SELECT array[';
+	FOR i IN 3..array_length(column_names, 1) LOOP
+		query = query || column_names[i] || '::text';
+		IF (i != array_length(column_names, 1)) THEN
+			query = query || ', ';			 
+		END IF;
+	END LOOP;
+	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
+	RAISE NOTICE '%', query;
+	FOR _row IN EXECUTE query LOOP
+		RAISE NOTICE '%', _row.tmp_pk;
+		temporal_pk = _row.tmp_pk;
+		query = 'SELECT array_agg('
 		|| column_names[1]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO r_v;
-		EXECUTE 'SELECT array_agg('
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO r_v;
+		query = 'SELECT array_agg('
 		|| column_names[2]
 		|| ' ORDER BY '
 		|| column_names[2]
 		|| ') FROM '
 		|| tablename
-		|| ' WHERE '
-		|| column_names[3]
-		|| ' = '
-		|| ids[i]
-		INTO t_p;
+		|| ' WHERE ';
+		FOR i IN 3..array_length(column_names, 1) LOOP
+			query = query || column_names[i] || '::text = ''' || _row.tmp_pk[i-2] || ''' AND ';
+		END LOOP;
+		query = query || where_clause;
+		EXECUTE query INTO t_p;
 		RETURN NEXT;
 	END LOOP;
 END;
