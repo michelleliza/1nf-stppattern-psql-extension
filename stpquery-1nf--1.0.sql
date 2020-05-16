@@ -23,9 +23,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -83,9 +81,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -138,9 +134,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -198,9 +192,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -253,9 +245,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -313,9 +303,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -369,9 +357,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -510,9 +496,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -650,9 +634,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
@@ -710,9 +692,7 @@ BEGIN
 		END IF;
 	END LOOP;
 	query = query || '] tmp_pk FROM ' || tablename || ' WHERE ' || where_clause;
-	RAISE NOTICE '%', query;
 	FOR _row IN EXECUTE query LOOP
-		RAISE NOTICE '%', _row.tmp_pk;
 		temporal_pk = _row.tmp_pk;
 		query = 'SELECT array_agg('
 		|| column_names[1]
