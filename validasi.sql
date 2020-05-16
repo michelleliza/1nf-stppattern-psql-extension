@@ -23,7 +23,7 @@ SELECT
 FROM
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) t1,
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) t2
-WHERE t1.temporal_pk = 1 AND t2.temporal_pk = 5;
+WHERE t1.temporal_pk[1] = '1' AND t2.temporal_pk[1] = '5';
 
 -- TC 2
 SELECT
@@ -38,7 +38,7 @@ SELECT
 	)
 FROM
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) trains, trainroutes
-WHERE temporal_pk = 2 AND trainroutes.id = 3;
+WHERE temporal_pk[1] = '2' AND trainroutes.id = 3;
 
 -- TC 3
 SELECT
@@ -59,7 +59,7 @@ SELECT
 	)
 FROM
 	form_mregion('snow', array['area', 'time_period', 'snow_id']) snow, stations
-WHERE temporal_pk = 1 AND stations.id = 15;
+WHERE temporal_pk[1] = '1' AND stations.id = 15;
 
 -- TC 4
 SELECT
@@ -89,7 +89,7 @@ SELECT
 FROM 
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) trains,
 	trainroutes t1, trainroutes t2
-WHERE temporal_pk = 4 AND t1.id = 3 AND t2.id = 4;
+WHERE temporal_pk[1] = '4' AND t1.id = 3 AND t2.id = 4;
 
 -- TC 6
 SELECT
@@ -100,7 +100,7 @@ SELECT
 FROM
 	form_mpoint('trains', array['p_start', 'p_end', 'time_period', 'train_id']) trains,
 	stations s1, stations s2
-WHERE temporal_pk = 4 AND s1.id = 10 AND s2.id = 28;
+WHERE temporal_pk[1] = '4' AND s1.id = 10 AND s2.id = 28;
 
 -- TC 7
 SELECT
